@@ -73,8 +73,8 @@
 	     (cons (lambda (val)
 		     (k val))
 		   (or (get (quote var) 'conts) '()))))
-     (print "getting") (print (quote var))
-     (print (get (quote var) 'value))
+     ;(print "getting") (print (quote var))
+     ;(print (get (quote var) 'value))
      (get (quote var) 'value))))
     
 ;	   "...")))))
@@ -92,7 +92,7 @@
     first))
 
 (define (send-var var val)
-  (print (get 'status 'value))
+  ;;(print (get 'status 'value))
   (put! 'status 'value val)
   (map (lambda (k)
 	 (*enqueue* (lambda () (k val))))
@@ -142,18 +142,6 @@
 
 (define (patch A B)
   (%inline .apply dd A (%inline .diff dd A B)))
-
-(define-syntax-rule (render2 (var) body)
-  (lambda (this)
-    (node (var)
-	  (let ((new-nodes body)
-		(ref (%inline .cloneNode this #f)))
-	    (if (list? body)
-		(for-each (lambda (node)
-			    (append-child ref node))
-			  new-nodes)
-		(append-child ref body))
-	    (patch this ref)))))
 
 (define-syntax-rule (render (var ...) body)
   (lambda (this)

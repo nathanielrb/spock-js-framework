@@ -25,7 +25,21 @@
 (define map-render
   (render (status messages) (map (lambda (y) (<div> (<text> status) (<text> y))) messages)))
 
+(define map-render2
+  (render (status-messages) (map (lambda (y) (<div> (<text> y))) status-messages)))
+
 (register-callback "map-render" map-render)
+(register-callback "map-render2" map-render2)
+
+(node (status)
+     (node (messages)
+	    (print "a")
+	    (send-var 'status-messages messages)))
+
+(node (messages)
+    (node (status)
+  (print "b")
+  (send-var 'status-messages messages)))
 
 (init)
 
