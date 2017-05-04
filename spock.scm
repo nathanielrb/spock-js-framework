@@ -1,3 +1,6 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; DOM
+
 (define (qsa element query) (%inline .querySelectorAll element query))
 
 (define (qs element query) (%inline .querySelector element query))
@@ -12,17 +15,45 @@
 
 (define (get-id id) (%inline document.getElementById id))
 
+(define (new-element name children class)
+  (let ((elt (%inline document.createElement name)))
+    (%inline .classList.add elt class)
+    (map (lambda (child)
+	   (%inline .appendChild elt child))
+	 children)
+    elt))
+    
+(define (<text> text)
+  (%inline document.createTextNode text))
+
+(define-syntax-rule (<div> children ...)
+  (new-element "div" (list children ...) "class"))
+
+(define (remove node)
+  (%inline .removeChild (.parentNode node) node))
+
+(define (insert-before node1 node2)
+  (%inline .insertBefore (.parentNode node2) node1 node2))
+
+(define (append-child parent child)
+  (%inline .appendChild parent child))
+
+(define (set-html elt content)
+  (set! (.innerHTML elt) content))
+
+(define dd (%inline "new diffDOM"))
+
+(define (patch A B)
+  (%inline .apply dd A (%inline .diff dd A B)))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Events etc.
+;; Events 
 
 (define (add-event-listener event element callback)
   (%inline .addEventListener element event callback))
 
 (define (set-click elt cb)
   (set! (.onclick elt) cb))
-
-(define (set-html elt content)
-  (set! (.innerHTML elt) content))
 
 (define (ajax method path)
   (let ((x (%inline "new XMLHttpRequest")))
@@ -68,16 +99,11 @@
 (define-syntax-rule (put-continuation var)
   (call/cc
    (lambda (k)
-     (when (not (get (quote var) 'value))
-       (put! (quote var) 'conts
-	     (cons (lambda (val)
-		     (k val))
-		   (or (get (quote var) 'conts) '()))))
-     ;(print "getting") (print (quote var))
-     ;(print (get (quote var) 'value))
-     (get (quote var) 'value))))
-    
-;	   "...")))))
+     (put! (quote var) 'conts
+	   (cons (lambda (val)
+		   (k val))
+		 (or (get (quote var) 'conts) '())))
+     "")))
 
 (define-syntax-rule (node (var ...) body ...)
   (let ((var (put-continuation var)) ...)
@@ -92,8 +118,6 @@
     first))
 
 (define (send-var var val)
-  ;;(print (get 'status 'value))
-  (put! 'status 'value val)
   (map (lambda (k)
 	 (*enqueue* (lambda () (k val))))
        (get var 'conts))
@@ -108,40 +132,6 @@
 	       (*enqueue* (lambda () (k val))))
 	     (get var 'conts))
 	(send-vars (cddr vars-vals)))))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; DOM
-
-(define (new-element name children class)
-  (let ((elt (%inline document.createElement name)))
-    (%inline .classList.add elt class)
-					;(for-each (lambda (child)
-					;(let ((child (car children)))
-    (map (lambda (child)
-	   (%inline .appendChild elt child))
-	 children)
-    ;children
-    elt))
-    
-(define (<text> text)
-  (%inline document.createTextNode text))
-
-(define-syntax-rule (<div> children ...)
-  (new-element "div" (list children ...) "class"))
-
-(define (remove node)
-  (%inline .removeChild (.parentNode node) node))
-
-(define (insert-before node1 node2)
-  (%inline .insertBefore (.parentNode node2) node1 node2))
-
-(define (append-child parent child)
-  (%inline .appendChild parent child))
-
-(define dd (%inline "new diffDOM"))
-
-(define (patch A B)
-  (%inline .apply dd A (%inline .diff dd A B)))
 
 (define-syntax-rule (render (var ...) body)
   (lambda (this)

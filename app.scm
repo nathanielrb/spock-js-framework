@@ -32,14 +32,14 @@
 (register-callback "map-render2" map-render2)
 
 (node (status)
-     (node (messages)
-	    (print "a")
-	    (send-var 'status-messages messages)))
+    (node (messages)
+    (print "a")
+	    (send-var 'status-messages (cons status messages))))
 
-(node (messages)
-    (node (status)
-  (print "b")
-  (send-var 'status-messages messages)))
+;(node (messages)
+ ;   (node (status)
+  ;(print "b")
+;  (send-var 'status-messages  (cons status messages))))
 
 (init)
 
