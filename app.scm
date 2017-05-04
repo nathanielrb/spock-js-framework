@@ -1,20 +1,20 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; App
 
-(define-syntax-rule (render-click (var) body ...)
-  (lambda (this)
-    (node (var)
-	  (set-click this
-		     (callback (lambda (this)
-				 (let ((vars (begin body ...)))
-				   (send-vars vars))))))))
 
-(define click-alert (render-click (x) (alert x)
-				  '(status "Loaded" messages (1 2 3))))
+(define click0 (render-click (x) '(messages (1 2 3))))
 
-(define click2 (render-click (y) (alert "going") '(x "go")))
+(register-callback "click0" click0)
 
-(register-callback "click-alert" click-alert)
+(define click0b (render-click (x) '(messages (2 3 4))))
+
+(register-callback "click0b" click0b)
+
+(define click1 (render-click (x) '(status "Loaded")))
+
+(register-callback "click1" click1)
+
+(define click2 (render-click (y) '(status "loading...")))
 
 (register-callback "click2" click2)
 
@@ -24,8 +24,9 @@
 (register-callback "single-render" single-render)
 
 (define map-render
-  (render (messages) (map (lambda (x) (<div> (<text> x))) messages)))
+  (render (status messages) (map (lambda (x) (<div> (<text> status) (<text> x))) messages)))
 
 (register-callback "map-render" map-render)
 
 (init)
+

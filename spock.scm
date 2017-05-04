@@ -55,15 +55,21 @@
       (let ((next-cc (*dequeue*)))
 	((next-cc)))))
 
-(define-syntax-rule (node (var) body ...)
-  (let ((var (call/cc
-	      (lambda (k)		    
-		(put! (quote var) 'conts
-		      (cons k (or (get (quote var) 'conts) '())))
-		"..."))))
-    body
-    ...
-    (yield)))
+(define-syntax-rule (put-continuation var)
+  (call/cc
+   (lambda (k)
+     (or (get (quote var) 'value)
+	 (begin
+	   (put! (quote var) 'conts
+		 (cons (lambda (val)
+			 (set! cached-value val)
+			 (k val))
+		       (or (get (quote var) 'conts) '())))
+	   "...")))))
+
+(define-syntax-rule (node (var ...) body ...)
+  (let ((var (put-continuation var)) ...)
+    body ... (yield)))
 
 (define (*enqueue* x)
   (set! *queue* (append *queue* (list x))))
@@ -74,6 +80,7 @@
     first))
 
 (define (send-var var val)
+  (put! var 'value val)
   (map (lambda (k)
 	 (*enqueue* (lambda () (k val))))
        (get var 'conts))
@@ -96,8 +103,10 @@
   (let ((elt (%inline document.createElement name)))
     (%inline .classList.add elt class)
 					;(for-each (lambda (child)
-    (let ((child (car children)))
-      (%inline .appendChild elt child))
+					;(let ((child (car children)))
+    (map (lambda (child)
+	   (%inline .appendChild elt child))
+	 children)
     ;children
     elt))
     
@@ -121,7 +130,7 @@
 (define (patch A B)
   (%inline .apply dd A (%inline .diff dd A B)))
 
-(define-syntax-rule (render (var) body)
+(define-syntax-rule (render2 (var) body)
   (lambda (this)
     (node (var)
 	  (let ((new-nodes body)
@@ -132,6 +141,26 @@
 			  new-nodes)
 		(append-child ref body))
 	    (patch this ref)))))
+
+(define-syntax-rule (render (var ...) body)
+  (lambda (this)
+    (node (var ...)
+	  (let ((new-nodes body)
+		(ref (%inline .cloneNode this #f)))
+	    (if (list? body)
+		(for-each (lambda (node)
+			    (append-child ref node))
+			  new-nodes)
+		(append-child ref body))
+	    (patch this ref)))))
+
+(define-syntax-rule (render-click (var) body ...)
+  (lambda (this)
+    (node (var)
+	  (set-click this
+		     (callback (lambda (this)
+				 (let ((vars (begin body ...)))
+				   (send-vars vars))))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Init
