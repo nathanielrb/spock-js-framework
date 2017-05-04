@@ -1,7 +1,6 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; App
 
-
 (define click0 (render-click (x) '(messages (1 2 3))))
 
 (register-callback "click0" click0)
@@ -24,7 +23,7 @@
 (register-callback "single-render" single-render)
 
 (define map-render
-  (render (status messages) (map (lambda (x) (<div> (<text> status) (<text> x))) messages)))
+  (render (status messages) (map (lambda (y) (<div> (<text> status) (<text> y))) messages)))
 
 (register-callback "map-render" map-render)
 

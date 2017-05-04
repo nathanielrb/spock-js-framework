@@ -55,16 +55,29 @@
       (let ((next-cc (*dequeue*)))
 	((next-cc)))))
 
+;; (define-syntax save-continuation
+;;   (syntax-rules ()
+;;    ((save-continuation var body) (call/cc (lambda (k) (put! var 'c k) body)))))
+;;
+;; (let ((x (save-continuation 'x 5)) (y (save-continuation 'y 7))) (+ x y))
+;;
+;; ((get 'x 'c) 20)
+;;
+;; ((get 'y 'c) 20)
+
 (define-syntax-rule (put-continuation var)
   (call/cc
    (lambda (k)
-     (or (print (get (quote var) 'value)  (get (quote var) 'value))
-	 (begin
-	   (put! (quote var) 'conts
-		 (cons (lambda (val)
-			 (k val))
-		       (or (get (quote var) 'conts) '())))
-	   "...")))))
+     (when (not (get (quote var) 'value))
+       (put! (quote var) 'conts
+	     (cons (lambda (val)
+		     (k val))
+		   (or (get (quote var) 'conts) '()))))
+     (print "getting") (print (quote var))
+     (print (get (quote var) 'value))
+     (get (quote var) 'value))))
+    
+;	   "...")))))
 
 (define-syntax-rule (node (var ...) body ...)
   (let ((var (put-continuation var)) ...)
@@ -79,7 +92,8 @@
     first))
 
 (define (send-var var val)
-  (put! var 'value val)
+  (print (get 'status 'value))
+  (put! 'status 'value val)
   (map (lambda (k)
 	 (*enqueue* (lambda () (k val))))
        (get var 'conts))
