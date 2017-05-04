@@ -58,11 +58,10 @@
 (define-syntax-rule (put-continuation var)
   (call/cc
    (lambda (k)
-     (or (get (quote var) 'value)
+     (or (print (get (quote var) 'value)  (get (quote var) 'value))
 	 (begin
 	   (put! (quote var) 'conts
 		 (cons (lambda (val)
-			 (set! cached-value val)
 			 (k val))
 		       (or (get (quote var) 'conts) '())))
 	   "...")))))
