@@ -80,3 +80,83 @@
 ;				(print "setting")
 ;				(put! x 'conts (cons k (get x 'conts)))
 ;				"..."))))
+
+(define (current-continuation)
+  (call/cc (lambda (cc) (cc cc))))
+
+(define (compose-signals1 var vars)
+  (map (lambda (v)
+	 (put! v 'partial-compositions (list var)))
+       vars)
+  (put! var 'composition (lambda (bindings) (compose-bindings var bindings))))
+;  (compose-bindings var '()))
+
+(define (compose-bindings var bindings)
+  (let ((bindings '()))    
+    (let ((signals (call/cc (lambda (k) (put! var 'composition k)
+				    '()))))
+      (set! bindings (merge signals bindings))
+      (send-composed-bindings bindings))))
+
+
+
+
+
+
+(define (compose-signals var vars)
+  (let ((bindings '()))    
+    (let ((signals (call/cc (lambda (k) (map (lambda (var)
+					       (put! var 'partial-compositions (list k)))
+					     vars)
+				    '()))))
+      (set! bindings (merge signals bindings))
+      (send-composed-bindings bindings))))
+
+(define (send-composed-bindings bindings)
+  (print "BINDINGS")
+  (print bindings))
+
+(define merge append)
+
+(define (get-binding binding-name bindings)
+  (let ((binding-pair (assoc binding-name bindings)))
+    (when binding-pair (cdr binding-pair))))
+
+(define (send-bindings var bindings)
+  ((get var 'composition) bindings))
+
+(define (merge-continuation-lists clists)
+  (let loop ((merged '())
+	     (clists clists))
+    (if (null? clists)
+	merged
+	(loop (merge-alist-sets merged (car clists))
+	      (cdr clists)))))
+
+(define (send-vars var-bindings)
+  (map (lambda (varset)
+	 (let ((var-names (car varset))
+	       (continuations (cdr varset)))
+	   (when (not (null? continuations))
+	     (map (lambda (k)
+		    (*enqueue* (lambda () 
+				 (k (map (lambda (var) (cons var (get-binding var var-bindings)))
+					 var-names)))))
+		  continuations))))
+       (merge-continuation-lists
+	(map (lambda (var-pair)
+	       (let ((var (car var-pair)))
+		 (cons var (get var 'partial-compositions))))
+	     var-bindings))))
+
+
+
+(define *queue* '())
+
+(define (*enqueue* x)
+  (set! *queue* (append *queue* (list x))))
+
+(define (*dequeue*)
+  (let ((first (car *queue*)))
+    (set! *queue* (cdr *queue*))
+    first))
