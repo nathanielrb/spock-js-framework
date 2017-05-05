@@ -102,7 +102,6 @@
 
 
 
-
 (define (compose-signals var vars)
   (let ((bindings '()))    
     (let ((signals (call/cc (lambda (k) (map (lambda (var)

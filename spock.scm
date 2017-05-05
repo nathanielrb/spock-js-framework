@@ -123,7 +123,7 @@
        (get var 'conts))
   (yield))
 
-(define (send-vars vars-vals)
+(define (old-send-vars vars-vals)
   (if (null? vars-vals)
       (yield)
       (let ((var (car vars-vals))
@@ -152,6 +152,52 @@
 		     (callback (lambda (this)
 				 (let ((vars (begin body ...)))
 				   (send-vars vars))))))))
+
+(define (compose-signals var vars)
+  (let ((bindings '()))    
+    (let ((signals (call/cc (lambda (k) (map (lambda (var)
+					       (put! var 'partial-compositions (list k)))
+					     vars)
+				    '()))))
+      (set! bindings (merge signals bindings))
+      (send-composed-bindings bindings))))
+
+(define (send-composed-bindings bindings)
+  (print "BINDINGS")
+  (print bindings))
+
+(define merge append)
+
+(define (get-binding binding-name bindings)
+  (let ((binding-pair (assoc binding-name bindings)))
+    (when binding-pair (cdr binding-pair))))
+
+(define (send-bindings var bindings)
+  ((get var 'composition) bindings))
+
+(define (merge-continuation-lists clists)
+  (let loop ((merged '())
+	     (clists clists))
+    (if (null? clists)
+	merged
+	(loop (merge-alist-sets merged (car clists))
+	      (cdr clists)))))
+
+(define (send-vars var-bindings)
+  (map (lambda (varset)
+	 (let ((var-names (car varset))
+	       (continuations (cdr varset)))
+	   (when (not (null? continuations))
+	     (map (lambda (k)
+		    (*enqueue* (lambda () 
+				 (k (map (lambda (var) (cons var (get-binding var var-bindings)))
+					 var-names)))))
+		  continuations))))
+       (merge-continuation-lists
+	(map (lambda (var-pair)
+	       (let ((var (car var-pair)))
+		 (cons var (get var 'partial-compositions))))
+	     var-bindings))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Init
