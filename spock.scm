@@ -153,6 +153,12 @@
 				 (let ((vars (begin body ...)))
 				   (send-vars vars))))))))
 
+(define-syntax with-bindings
+  (syntax-rules ()
+    ((with-bindings (vars ...) bindings body ...)
+     (let ((vars (cdr (assoc (quote vars) bindings))) ...)
+       body ...))))
+
 (define (compose-signals var vars)
   (let ((bindings '()))    
     (let ((signals (call/cc (lambda (k) (map (lambda (var)
