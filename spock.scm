@@ -29,11 +29,20 @@
 (define-syntax-rule (<div> children ...)
   (new-element "div" (list children ...) "class"))
 
+(define-syntax-rule (<button> event cb children ...)
+  (set-click
+   (new-element "button" (list children ...) "class")
+   (callback (lambda ()
+	       (send-vars (cb))))))
+
 (define (remove node)
   (%inline .removeChild (.parentNode node) node))
 
 (define (insert-before node1 node2)
   (%inline .insertBefore (.parentNode node2) node1 node2))
+
+(define (replace node1 node2)
+  (%inline .replaceChild (.parentNode node2) node1 node2))
 
 (define (append-child parent child)
   (%inline .appendChild parent child))
@@ -50,14 +59,14 @@
   (%inline Array.prototype.slice.call
 	   (%inline .querySelectorAll document.body "*[spock]")))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Events 
-
 (define (add-event-listener event element callback)
   (%inline .addEventListener element event callback))
 
 (define (set-click elt cb)
-  (set! (.onclick elt) cb))
+  (set! (.onclick elt) cb) elt)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Events 
 
 (define (ajax method path)
   (let ((x (%inline "new XMLHttpRequest")))
@@ -80,6 +89,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Signals
 
+(define waiting (lambda () #f))
+
 (define call/cc call-with-current-continuation)
 
 (define *queue* '())
@@ -94,8 +105,9 @@
 
 (define (yield)
   (if (null? *queue*)
-      "loading..."
+      (waiting)
       (let ((next-cc (*dequeue*)))
+	(print "YIELDING")
 	((next-cc)))))
 
 (define (assoc-val key l)
@@ -113,18 +125,19 @@
   (call/cc
    (lambda (k)
      (map (lambda (var)
-	    (put! (quote var) 'continuations
-		  (cons k (or (get (quote var) 'continuations) '()))))
+	    (print "putting " var ": " k " into " (get var 'continuations))
+	    (put! var 'continuations
+		  (cons k (or (get var 'continuations) '()))))
 	  (list (quote vars) ...))
-     '())))
+     (list (assoc (quote vars) *inits*) ...))))
 
 (define-syntax-rule (compose-signals (vars ...) body ...)
   (let ((bindings '()))    
     (let ((signals (put-continuations vars ...)))
       (set! bindings (merge-bindings signals bindings))
-      (with-bindings (vars ...)
-		     bindings body ...
-		     (yield)))))
+      (with-bindings (vars ...) bindings
+		     body ...)
+      (yield))))
 
 (define (get-binding binding-name bindings)
   (let ((binding-pair (assoc binding-name bindings)))
@@ -133,7 +146,10 @@
 (define (send-bindings var bindings)
   ((get var 'continuations) bindings))
 
-(define (merge-continuation-lists clists)
+;; merge-alist-sets
+;; split ... ??
+
+(define (merge-continuation-lists1 clists)
   (let loop ((merged '())
 	     (clists clists))
     (if (null? clists)
@@ -141,22 +157,24 @@
 	(loop (merge-alist-sets merged (car clists))
 	      (cdr clists)))))
 
+(define (merge-continuation-lists clists)
+  (append clists))
+
 (define (send-vars var-bindings)
   (map (lambda (varset)
+	 (print "CONTINUATIONS: " varset)
 	 (let ((var-names (car varset))
 	       (continuations (cdr varset)))
 	   (when (not (null? continuations))
-	     (map (lambda (k)
-		    (*enqueue* (lambda () 
-				 (k (map (lambda (var)
-					   (cons var (get-binding var var-bindings)))
-					 var-names)))))
+	     (map (lambda (k) (*enqueue* (lambda ()  (k var-bindings))))
 		  continuations))))
        (merge-continuation-lists
 	(map (lambda (var-pair)
 	       (let ((var (car var-pair)))
 		 (cons var (get var 'continuations))))
-	     var-bindings))))
+	     var-bindings)))
+  (print "QUEUE: " *queue*)
+  (yield))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; API
@@ -164,25 +182,30 @@
 (define-syntax-rule (render (vars ...) body)
   (lambda (this)
     (compose-signals (vars ...)
-	  (let ((new-nodes body)
-		(ref (%inline .cloneNode this #f)))
-	    (if (list? body)
-		(for-each (lambda (node)
-			    (append-child ref node))
-			  new-nodes)
-		(append-child ref body))
-	    (patch this ref)))))
+      (let ((new-nodes body)
+	    (ref (%inline .cloneNode this #f)))
+	(log new-nodes)
+	(if (list? new-nodes)
+	    (for-each (lambda (node)
+			(append-child ref node))
+		      new-nodes)
+	    (append-child ref new-nodes))
+	(replace ref this)
+	(set! this ref)))))
+	;(patch this ref)))))
 
-(define-syntax-rule (bind-click (var) body ...)
+(define-syntax-rule (bind-click (vars ...) body ...)
   (lambda (this)
-    (compose-signals (var)
+    (compose-signals (vars ...)
 	  (set-click this
 		     (callback (lambda (this)
-				 (let ((vars (begin body ...)))
-				   (send-vars vars))))))))
-
-(define (init)
+				 (let ((var-bindings (begin body ...)))
+				   (send-vars var-bindings))))))))
+(define (init bindings)
+  (set! *inits* bindings)
   (map (lambda (e)
 	 (let ((name (%inline .getAttribute e "spock")))
 	   ((get-callback name) e)))
-       (spock-elements)))
+       (spock-elements))
+  (call/cc (lambda (k) (set! waiting k)))
+  (begin (print "waiting...")))
