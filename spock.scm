@@ -121,6 +121,7 @@
 
 (define merge-bindings append)
 
+;; thread *inits???
 (define-syntax-rule (put-continuations vars ...)
   (call/cc
    (lambda (k)
@@ -146,10 +147,46 @@
 (define (send-bindings var bindings)
   ((get var 'continuations) bindings))
 
-;; merge-alist-sets
-;; split ... ??
+;; merge-alist-sets and three-way-split ... ??
 
-(define (merge-continuation-lists1 clists)
+(define (three-way-split A B)
+  (let loop ((As A)
+	     (Bs B)
+	     (accA '())
+	     (accAB '())
+	     (accB '()))
+    (if (null? Bs)
+	(list (append As accA) accAB accB)
+	(let ((b (car Bs)))
+	  (let subloop ((As As)
+			(Aleft '()))
+	    (if (null? As)
+		(loop Aleft (cdr Bs) accA accAB (cons b accB))
+		(let ((a (car As)))
+		  (if (equal? b a)
+		      (loop (append Aleft (cdr As)) (cdr Bs) accA (cons b accAB) accB)
+		      (subloop (cdr As) (cons a Aleft))))))))))
+
+(define (merge-alist-sets L new-var-set)
+  (let ((newvar (car new-var-set)))
+    (let loop ((Ls L)
+	       (newset (cdr new-var-set))
+	       (accum '()))
+    (if (or (null? newset) (null? Ls))
+	(cons (cons (list newvar) newset) accum)
+	(let* ((vars (caar Ls))
+	       (set (cdar Ls))
+	       (split (three-way-split set newset))
+	       (A (car split))
+	       (AB (cadr split))
+	       (B (caddr split)))
+	  (loop (cdr Ls) B
+		(append (list (cons vars A)
+			      (cons (cons newvar vars)
+				    AB))
+			accum)))))))
+
+(define (merge-continuation-lists clists)
   (let loop ((merged '())
 	     (clists clists))
     (if (null? clists)
@@ -157,7 +194,7 @@
 	(loop (merge-alist-sets merged (car clists))
 	      (cdr clists)))))
 
-(define (merge-continuation-lists clists)
+(define (merge-continuation-lists2 clists)
   (append clists))
 
 (define (send-vars var-bindings)

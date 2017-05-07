@@ -25,15 +25,15 @@
 (register-callback "single-render" single-render)
 
 (define map-render
-  (render (messages)
-	  (map (lambda (msg) (<div> (<text> msg)
-				    (<button> #:click
-					      (lambda ()
-						(print "yay " msg)
-						'((status . "reloading")))
-
-					
-					      (<text> "click me"))))
+  (render (messages count)
+	  (map (lambda (msg)
+		 (<div> (<text> msg)
+			(<text> count)
+			(<button> #:click
+				  (lambda ()
+				    (print "yay " msg)
+				    '((status . "reloading")))
+				  (<text> "click me"))))
 	       messages)))
 
 (register-callback "map-render" map-render)
