@@ -46,10 +46,6 @@
 (define (patch A B)
   (%inline .apply dd A (%inline .diff dd A B)))
 
-(define (spock-elements)
-  (%inline Array.prototype.slice.call
-	   (%inline .querySelectorAll document.body "*[spock]")))
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Events 
 
@@ -84,6 +80,35 @@
 
 (define *queue* '())
 
+(define (yield)
+  (if (null? *queue*)
+      "loading..."
+      (let ((next-cc (*dequeue*)))
+	((next-cc)))))
+
+;; (define-syntax save-continuation
+;;   (syntax-rules ()
+;;    ((save-continuation var body) (call/cc (lambda (k) (put! var 'c k) body)))))
+;;
+;; (let ((x (save-continuation 'x 5)) (y (save-continuation 'y 7))) (+ x y))
+;;
+;; ((get 'x 'c) 20)
+;;
+;; ((get 'y 'c) 20)
+
+(define-syntax-rule (put-continuation var)
+  (call/cc
+   (lambda (k)
+     (put! (quote var) 'conts
+	   (cons (lambda (val)
+		   (k val))
+		 (or (get (quote var) 'conts) '())))
+     "")))
+
+(define-syntax-rule (node (var ...) body ...)
+  (let ((var (put-continuation var)) ...)
+    body ... (yield)))
+
 (define (*enqueue* x)
   (set! *queue* (append *queue* (list x))))
 
@@ -92,46 +117,69 @@
     (set! *queue* (cdr *queue*))
     first))
 
-(define (yield)
-  (if (null? *queue*)
-      "loading..."
-      (let ((next-cc (*dequeue*)))
-	((next-cc)))))
+(define (send-var var val)
+  (map (lambda (k)
+	 (*enqueue* (lambda () (k val))))
+       (get var 'conts))
+  (yield))
 
-(define (assoc-val key l)
-  (cdr (assoc key l)))
+(define (old-send-vars vars-vals)
+  (if (null? vars-vals)
+      (yield)
+      (let ((var (car vars-vals))
+	    (val (cadr vars-vals)))
+	(map (lambda (k)
+	       (*enqueue* (lambda () (k val))))
+	     (get var 'conts))
+	(send-vars (cddr vars-vals)))))
+
+(define-syntax-rule (render (var ...) body)
+  (lambda (this)
+    (node (var ...)
+	  (let ((new-nodes body)
+		(ref (%inline .cloneNode this #f)))
+	    (if (list? body)
+		(for-each (lambda (node)
+			    (append-child ref node))
+			  new-nodes)
+		(append-child ref body))
+	    (patch this ref)))))
+
+(define-syntax-rule (render-click (var) body ...)
+  (lambda (this)
+    (node (var)
+	  (set-click this
+		     (callback (lambda (this)
+				 (let ((vars (begin body ...)))
+				   (send-vars vars))))))))
 
 (define-syntax with-bindings
   (syntax-rules ()
     ((with-bindings (vars ...) bindings body ...)
-     (let ((vars (assoc-val (quote vars) bindings)) ...)
+     (let ((vars (cdr (assoc (quote vars) bindings))) ...)
        body ...))))
 
-(define merge-bindings append)
-
-(define-syntax-rule (put-continuations vars ...)
-  (call/cc
-   (lambda (k)
-     (map (lambda (var)
-	    (put! (quote var) 'continuations
-		  (cons k (or (get (quote var) 'continuations) '()))))
-	  (list (quote vars) ...))
-     '())))
-
-(define-syntax-rule (compose-signals (vars ...) body ...)
+(define (compose-signals var vars)
   (let ((bindings '()))    
-    (let ((signals (put-continuations vars ...)))
-      (set! bindings (merge-bindings signals bindings))
-      (with-bindings (vars ...)
-		     bindings body ...
-		     (yield)))))
+    (let ((signals (call/cc (lambda (k) (map (lambda (var)
+					       (put! var 'partial-compositions (list k)))
+					     vars)
+				    '()))))
+      (set! bindings (merge signals bindings))
+      (send-composed-bindings bindings))))
+
+(define (send-composed-bindings bindings)
+  (print "BINDINGS")
+  (print bindings))
+
+(define merge append)
 
 (define (get-binding binding-name bindings)
   (let ((binding-pair (assoc binding-name bindings)))
-    (and binding-pair (cdr binding-pair))))
+    (when binding-pair (cdr binding-pair))))
 
 (define (send-bindings var bindings)
-  ((get var 'continuations) bindings))
+  ((get var 'composition) bindings))
 
 (define (merge-continuation-lists clists)
   (let loop ((merged '())
@@ -148,38 +196,21 @@
 	   (when (not (null? continuations))
 	     (map (lambda (k)
 		    (*enqueue* (lambda () 
-				 (k (map (lambda (var)
-					   (cons var (get-binding var var-bindings)))
+				 (k (map (lambda (var) (cons var (get-binding var var-bindings)))
 					 var-names)))))
 		  continuations))))
        (merge-continuation-lists
 	(map (lambda (var-pair)
 	       (let ((var (car var-pair)))
-		 (cons var (get var 'continuations))))
+		 (cons var (get var 'partial-compositions))))
 	     var-bindings))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; API
+;; Init
 
-(define-syntax-rule (render (vars ...) body)
-  (lambda (this)
-    (compose-signals (vars ...)
-	  (let ((new-nodes body)
-		(ref (%inline .cloneNode this #f)))
-	    (if (list? body)
-		(for-each (lambda (node)
-			    (append-child ref node))
-			  new-nodes)
-		(append-child ref body))
-	    (patch this ref)))))
-
-(define-syntax-rule (bind-click (var) body ...)
-  (lambda (this)
-    (compose-signals (var)
-	  (set-click this
-		     (callback (lambda (this)
-				 (let ((vars (begin body ...)))
-				   (send-vars vars))))))))
+(define (spock-elements)
+  (%inline Array.prototype.slice.call
+	   (%inline .querySelectorAll document.body "*[spock]")))
 
 (define (init)
   (map (lambda (e)
