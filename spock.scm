@@ -15,29 +15,29 @@
 
 (define (get-id id) (%inline document.getElementById id))
 
-(define (new-element name children class)
+(define (new-element name attributes children)
   (let ((elt (%inline document.createElement name)))
-    (when class
-      (%inline .classList.add elt class))
+    (when (assoc 'class attributes)
+      (%inline .classList.add elt (assoc-val 'class attributes)))
     (for-each (lambda (child)
 	   (%inline .appendChild elt child))
 	 children)
     elt))
 
-(define-syntax-rule (<div> children ...)
-  (new-element "div" (list children ...) "class"))
+(define-syntax-rule (<div> ((attr val) ...) children ...)
+  (new-element "div" (list (cons (quote attr) val) ...) (list children ...)))
 
-(define-syntax-rule (<span> children ...)
-  (new-element "span" (list children ...) "class"))
+(define-syntax-rule (<span> ((attr val) ...) children ...)
+  (new-element "span"  #f (list children ...)))
 
-(define-syntax-rule (<b> children ...)
-  (new-element "b" (list children ...) "class"))
+(define-syntax-rule (<b> ((attr val) ...) children ...)
+  (new-element "b" #f  (list children ...)))
 
-(define-syntax-rule (<i> children ...)
-  (new-element "i" (list children ...) "class"))
+(define-syntax-rule (<i> ((attr val) ...) children ...)
+  (new-element "i" #f (list children ...)))
 
-(define-syntax-rule (<button> children ...)
-  (new-element "button" (list children ...) "class"))
+(define-syntax-rule (<button> ((attr val) ...) children ...)
+  (new-element "button"  #f (list children ...)))
 
 (define (<text> text)
   (%inline document.createTextNode text))
