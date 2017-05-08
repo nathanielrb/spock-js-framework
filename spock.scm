@@ -15,55 +15,6 @@
 
 (define (get-id id) (%inline document.getElementById id))
 
-(define (make-node node)
-  (print "NODE " node)
-  (if (string? node)
-      (make-text-element node)
-      (let* ((elt (%inline document.createElement (element-name node))))
-	;(when (element-attribute-val elt 'class)
-	 ; (%inline .classList.add elt   (element-attribute-val elt 'class)))
-	(for-each (lambda (child)
-		    (%inline .appendChild elt (make-node child)))
-		  (element-children node))
-	elt)))
-
-(define (make-text-element text)
-  (%inline document.createTextNode text))
-
-(define (element name attributes children)
-  (list name attributes children))
-
-(define (element-type elt)
-  (if (string? elt) 3 1))      
-
-(define (element-name elt)
-  (car elt))
-
-(define (element-attributes elt)
-  (cadr elt))
-
-(define (element-attribute-val elt attr)
-  (and (not (null? (cadr elt)))
-       (assoc-val attr (cadr elt))))
-
-(define (element-children elt)
-  (caddr elt))
-
-(define-syntax-rule (<div> ((attr val) ...) children ...)
-  (element "DIV" (list (cons (quote attr) val) ...) (list children ...)))
-
-(define-syntax-rule (<span> ((attr val) ...) children ...)
-  (element "span" #f (list children ...)))
-
-(define-syntax-rule (<b> ((attr val) ...) children ...)
-  (element "b" #f  (list children ...)))
-
-(define-syntax-rule (<i> ((attr val) ...) children ...)
-  (element "i" #f (list children ...)))
-
-(define-syntax-rule (<button> ((attr val) ...) children ...)
-  (element "button"  #f (list children ...)))
-
 (define (remove-node node)
   (%inline .removeChild (.parentNode node) node))
 
@@ -71,7 +22,6 @@
   (%inline .insertBefore (.parentNode node2) node1 node2))
 
 (define (replace-node node1 node2)
-  (print "replacing")
   (%inline .replaceChild (.parentNode node2) node1 node2))
 
 (define (node-append-child parent child)
@@ -82,8 +32,8 @@
 
 (define dd (%inline "new diffDOM"))
 
-(define (patch A B)
-  (%inline .apply dd A (%inline .diff dd A B)))
+;(define (patch A B)
+ ; (%inline .apply dd A (%inline .diff dd A B)))
 
 (define (spock-elements)
   (%inline Array.prototype.slice.call
@@ -107,6 +57,107 @@
 
 (define (old-set-click elt cb)
   (set! (.onclick elt) cb) elt)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Virtual DOM
+
+(define (text-element? elt)
+  (or (string? elt) (number? elt)))
+
+(define (reify-element element)
+  ;;(print "NODE " element)
+  (if (text-element? element)
+      (make-text-element element)
+      (let* ((node (%inline document.createElement (element-name element))))
+	(class-add node element)
+	(for-each (lambda (child)
+		    (%inline .appendChild node (reify-element child)))
+		  (element-children element))
+	node)))
+
+(define (class-add node elt)
+  (let ((class (element-attribute-val elt 'class)))
+    ;;(print "CLASS " class)
+    (when class
+	  (%inline .classList.add node (element-attribute-val elt 'class)))))
+
+(define (make-text-element text)
+  (%inline document.createTextNode text))
+
+(define (element name attributes children)
+  (list name attributes children))
+
+(define (element-type elt)
+  (if (string? elt) 3 1))      
+
+(define (element-name elt)
+  (car elt))
+
+(define (element-attributes elt)
+  (car-safe (cdr-safe elt)))
+
+(define (element-attribute-val elt attr)
+  (assoc-val attr (element-attributes elt)))
+
+(define (element-children elt)
+  (and (pair? elt)
+       (caddr elt)))
+
+(define-syntax-rule (<div> ((attr val) ...) children ...)
+  (element "DIV" (list (cons (quote attr) val) ...) (list children ...)))
+
+(define-syntax-rule (<span> ((attr val) ...) children ...)
+  (element "span" #f (list children ...)))
+
+(define-syntax-rule (<b> ((attr val) ...) children ...)
+  (element "b" (list (cons (quote attr) val) ...) (list children ...)))
+
+(define-syntax-rule (<i> ((attr val) ...) children ...)
+  (element "i" #f (list children ...)))
+
+(define-syntax-rule (<button> ((attr val) ...) children ...)
+  (element "button"  #f (list children ...)))
+
+(define (nodename elt)
+  (%property-ref .nodeName elt))
+
+(define (changed? real virtual)
+  ;;(print "types: "  (%property-ref .nodeType real) " " (element-type virtual))
+  ;;(print "names: " (%property-ref .nodeName real) " " (element-name virtual))
+  ;;(print "content: " (%property-ref .nodeName real) " " virtual)
+  ;;(print "text: " (%property-ref .textContent real))
+  (or (not (equal? (%property-ref .nodeType real)
+		   (element-type virtual)))
+      (not (equal? (nodename real) (element-name virtual)))
+      (and (= (%property-ref .nodeType real) 3)
+	   (not (equal? (%property-ref .textContent real) virtual)))))
+
+(define (children node)
+  (%inline Array.prototype.slice.call
+	   (%property-ref .childNodes node)))
+
+(define (car-safe p)
+  (and (pair? p) (car p)))
+
+(define (cdr-safe p)
+  (and (pair? p) (cdr p)))
+
+(define (empty? x)
+  (not (and (void? x) (null? x) (not x))))
+
+(define (patch parent real virtual)
+  (cond ((empty? real) (node-append-child parent (reify-element virtual)))
+	((empty? virtual) (remove-node real))
+	((changed? real virtual)
+	 ;; (begin (print "replaiching in " real)
+	 (replace-node (reify-element virtual) real)) 
+	(else (begin
+		;;(print "doing")
+		;; events, props
+		(do ((rcs (vector->list (children real)) (cdr-safe rcs))
+		     (vcs (element-children virtual) (cdr-safe vcs)))
+		    ((and (or (not rcs) (null? rcs)) (or (not vcs) (null? vcs))))
+		(patch real (car-safe rcs) (car-safe vcs)))))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Events 
@@ -154,7 +205,7 @@
 	((next-cc)))))
 
 (define (assoc-val key l)
-  (cdr (assoc key l)))
+  (cdr-safe (assoc key l)))
 
 (define-syntax with-bindings
   (syntax-rules ()
@@ -254,54 +305,23 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; API
 
-(define (changed? real virtual)
-  (print "types: "  (%property-ref .nodeType real) " " (element-type virtual))
-  (print "names: " (%property-ref .nodeName real) " "
-	 (element-name virtual))
-  (print "content: " (%property-ref .textContent real) " " virtual)
-  (print "text: " (%property-ref .textContent real))
-  (or (not (equal? (%property-ref .nodeType real)
-		   (element-type virtual)))
-      (not (equal? (%property-ref .nodeName real)
-		   (element-name virtual)))
-      (and (= (%property-ref .nodeType real) 3)
-	   (not (equal? (%property-ref .textContent real) virtual)))))
-
-(define (children node)
-  (%inline Array.prototype.slice.call
-	   (%property-ref .childNodes node)))
-
-(define (cdr-safe p)
-  (and (pair? p) (cdr p)))
-
-(define (patch parent real virtual)
-  (print "patching " real " and " virtual)
-  (print (void? real))
-  (cond ((void? real) (node-append-child parent (make-node virtual)))
-	((null? virtual) (remove-node real))
-	((changed? real virtual)
-	 (replace-node (make-node virtual) real))
-	(else (do ((rcs (children real) (cdr-safe rcs))
-		   (vcs (element-children virtual) (cdr-safe vcs)))
-		  ((and (or (not rcs) (null? rcs)) (or (not vcs) (null? vcs))))
-		(patch real
-		       (and (not (null? rcs)) (car rcs))
-		       (and (not (null? vcs)) (car vcs)))))))
 	 
 ;; do this without set! and the this/ref switch?
 (define-syntax-rule (render (vars ...) body ...)
   (lambda (this)
     (compose-signals (vars ...)
-      (let ((newnode (begin body ...))
-	    (ref (%inline .cloneNode this #f)))
+      (let ((ref (%inline .cloneNode this #f))
+	    (newnode (list (nodename this) '() (list body ...))))
+	(print "new " newnode)
 	(patch (.parentNode this) this newnode)))))
-;	(if (list? new-nodes)
-;	    (for-each (lambda (node)
-;			(node-append-child ref node))
-;		      new-nodes)
-;	    (node-append-child ref new-nodes))
-;	(replace-node ref this)
-;	(set! this ref)))))
+
+;;	(if (list? new-nodes)
+;;	    (for-each (lambda (node)
+;;			(node-append-child ref node))
+;;		      new-nodes)
+;;	    (node-append-child ref new-nodes))
+;;	(replace-node ref this)
+;;	(set! this ref)))))
 
 (define (remove-all-children node)
   (for-each (lambda (child)
@@ -309,7 +329,19 @@
 	    (%inline Array.prototype.slice.call
 		     (%property-ref .childNodes node))))
 
-(define-syntax-rule (for xvar Xs (other-vars ...) body)
+(define-syntax-rule (for xvar Xs (other-vars ...) body ...)
+  (lambda (this)
+    (compose-signals (Xs other-vars ...)
+      (let ((ref (%inline .cloneNode this #f))
+	    (newnode (list (nodename this) '()
+			   (apply append
+			   (map
+			    (lambda (xvar)
+			      ((lambda (xvar) (list body ...)) xvar))
+			    Xs)))))
+	(patch (.parentNode this) this newnode)))))
+
+(define-syntax-rule (for2 xvar Xs (other-vars ...) body)
   (lambda (this)
     (compose-signals (Xs other-vars ...)
       (let ((ref (%inline .cloneNode this #f)))

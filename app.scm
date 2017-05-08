@@ -28,24 +28,24 @@
 
 (define single-render
   (render (status)
-	  (<div> () status)))
+	  (<b> ((class "green")) status)))
 
 (register-callback "single-render" single-render)
 
 (define map-messages
   (for msg messages (count)
-       (<div>  () (<div>  () (<b> () (<text> msg)))
-	       (<div> ()  (<text> " ducks" count))
-	       (<div> () (<text> count))
-	       (<div> {{class "click-me"}}
-		      (set-click
-		       (<button> () (<text> "click me"))
-		       (callback (lambda ()
-				   (print "yay " msg)
-				   '((status . "reloading")))))))))
+       (<div>  () (<b> () msg))
+       (<div> ()  " ducks: " count)
+
+       (<div> {{class "click-me"}}
+	      (<button> () "click me"))))
+;;		      (set-click
+;;		       (callback (lambda ()
+;;				   (print "yay " msg)
+;;				   '((status . "reloading")))))))))
 
 (register-callback "map-messages" map-messages)
 
-(init  '((status . "Not loaded yet.")
-	 (messages . (8))
-	 (count . 20)))
+(init  `((status . "Not loaded yet.")
+	 (messages . ,(range 0 800));;(8 9 10))
+	 (count . 4)))
