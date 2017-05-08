@@ -226,6 +226,9 @@
 	  (list (quote vars) ...))
      (list (assoc (quote vars) *inits*) ...))))
 
+;; use:
+;; (define (run) (letrec ((bindings (call/cc (lambda (k) (set! yield (lambda (vals) (k (append vals bindings)))) '(1))))) bindings))
+;;
 (define-syntax-rule (compose-signals (vars ...) body ...)
   (let ((bindings '()))    
     (let ((signals (put-continuations vars ...)))
