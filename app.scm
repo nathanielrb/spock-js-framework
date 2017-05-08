@@ -47,19 +47,18 @@
 	;(set! this ref)))))
 
 (define map-messages
-  (map-render messages (count)
-	      (lambda (msg)
-		(<div> (<div> (<b> (<text> msg)))
-		       (<div> (<text> " ducks" count))
-		       (<div> (<text> count))
-		       (<div> (set-click
-			       (<button> (<text> "click me"))
-			       (callback (lambda ()
-					   (print "yay " msg)
-					   '((status . "reloading"))))))))))
+  (for msg messages (count)
+       (<div> (<div> (<b> (<text> msg)))
+	      (<div> (<text> " ducks" count))
+	      (<div> (<text> count))
+	      (<div> (set-click
+		      (<button> (<text> "click me"))
+		      (callback (lambda ()
+				  (print "yay " msg)
+				  '((status . "reloading")))))))))
 
 (register-callback "map-messages" map-messages)
 
 (init  '((status . "Not loaded yet.")
 	 (messages . (8))
-	 (count . 200)))
+	 (count . 20)))

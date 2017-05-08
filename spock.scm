@@ -69,7 +69,13 @@
 (define (add-event-listener event element callback)
   (%inline .addEventListener element event callback))
 
-(define (set-click elt cb)
+(define-syntax-rule (define-event name event)
+  (define (name elt cb)
+    (set! (event elt) cb) elt))
+
+(define-event set-click .onclick)
+
+(define (old-set-click elt cb)
   (set! (.onclick elt) cb) elt)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -243,15 +249,15 @@
 	    (%inline Array.prototype.slice.call
 		     (%property-ref .childNodes node))))
 
-(define-syntax-rule (map-render map-var (other-vars ...) body-fn)
+(define-syntax-rule (for xvar Xs (other-vars ...) body)
   (lambda (this)
-    (compose-signals (map-var other-vars ...)
+    (compose-signals (Xs other-vars ...)
       (let ((ref (%inline .cloneNode this #f)))
 	(remove-all-children this)
 	(for-each
-	 (lambda (var)
-	   (node-append-child this (body-fn var)))
-	 map-var)))))
+	 (lambda (x)
+	   (node-append-child this ((lambda (xvar) body) x)))
+	 Xs)))))
 	
 (define-syntax-rule (bind-click (vars ...) body ...)
   (lambda (this)
