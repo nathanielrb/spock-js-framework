@@ -28,7 +28,7 @@
 
 (define single-render
   (render (status)
-	  (<div> () status)))
+	  (<div> () (<text> status))))
 
 (register-callback "single-render" single-render)
 

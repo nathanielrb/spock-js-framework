@@ -15,54 +15,32 @@
 
 (define (get-id id) (%inline document.getElementById id))
 
-(define (make-node node)
-  (print "NODE " node)
-  (if (string? node)
-      (make-text-element node)
-      (let* ((elt (%inline document.createElement (element-name node))))
-	;(when (element-attribute-val elt 'class)
-	 ; (%inline .classList.add elt   (element-attribute-val elt 'class)))
-	(for-each (lambda (child)
-		    (%inline .appendChild elt (make-node child)))
-		  (element-children node))
-	elt)))
-
-(define (make-text-element text)
-  (%inline document.createTextNode text))
-
-(define (element name attributes children)
-  (list name attributes children))
-
-(define (element-type elt)
-  (if (string? elt) 3 1))      
-
-(define (element-name elt)
-  (car elt))
-
-(define (element-attributes elt)
-  (cadr elt))
-
-(define (element-attribute-val elt attr)
-  (and (not (null? (cadr elt)))
-       (assoc-val attr (cadr elt))))
-
-(define (element-children elt)
-  (caddr elt))
+(define (new-element name attributes children)
+  (let ((elt (%inline document.createElement name)))
+    (when (assoc 'class attributes)
+      (%inline .classList.add elt (assoc-val 'class attributes)))
+    (for-each (lambda (child)
+	   (%inline .appendChild elt child))
+	 children)
+    elt))
 
 (define-syntax-rule (<div> ((attr val) ...) children ...)
-  (element "DIV" (list (cons (quote attr) val) ...) (list children ...)))
+  (new-element "div" (list (cons (quote attr) val) ...) (list children ...)))
 
 (define-syntax-rule (<span> ((attr val) ...) children ...)
-  (element "span" #f (list children ...)))
+  (new-element "span"  #f (list children ...)))
 
 (define-syntax-rule (<b> ((attr val) ...) children ...)
-  (element "b" #f  (list children ...)))
+  (new-element "b" #f  (list children ...)))
 
 (define-syntax-rule (<i> ((attr val) ...) children ...)
-  (element "i" #f (list children ...)))
+  (new-element "i" #f (list children ...)))
 
 (define-syntax-rule (<button> ((attr val) ...) children ...)
-  (element "button"  #f (list children ...)))
+  (new-element "button"  #f (list children ...)))
+
+(define (<text> text)
+  (%inline document.createTextNode text))
 
 (define (remove-node node)
   (%inline .removeChild (.parentNode node) node))
@@ -71,7 +49,6 @@
   (%inline .insertBefore (.parentNode node2) node1 node2))
 
 (define (replace-node node1 node2)
-  (print "replacing")
   (%inline .replaceChild (.parentNode node2) node1 node2))
 
 (define (node-append-child parent child)
@@ -254,54 +231,21 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; API
 
-(define (changed? real virtual)
-  (print "types: "  (%property-ref .nodeType real) " " (element-type virtual))
-  (print "names: " (%property-ref .nodeName real) " "
-	 (element-name virtual))
-  (print "content: " (%property-ref .textContent real) " " virtual)
-  (print "text: " (%property-ref .textContent real))
-  (or (not (equal? (%property-ref .nodeType real)
-		   (element-type virtual)))
-      (not (equal? (%property-ref .nodeName real)
-		   (element-name virtual)))
-      (and (= (%property-ref .nodeType real) 3)
-	   (not (equal? (%property-ref .textContent real) virtual)))))
 
-(define (children node)
-  (%inline Array.prototype.slice.call
-	   (%property-ref .childNodes node)))
-
-(define (cdr-safe p)
-  (and (pair? p) (cdr p)))
-
-(define (patch parent real virtual)
-  (print "patching " real " and " virtual)
-  (print (void? real))
-  (cond ((void? real) (node-append-child parent (make-node virtual)))
-	((null? virtual) (remove-node real))
-	((changed? real virtual)
-	 (replace-node (make-node virtual) real))
-	(else (do ((rcs (children real) (cdr-safe rcs))
-		   (vcs (element-children virtual) (cdr-safe vcs)))
-		  ((and (or (not rcs) (null? rcs)) (or (not vcs) (null? vcs))))
-		(patch real
-		       (and (not (null? rcs)) (car rcs))
-		       (and (not (null? vcs)) (car vcs)))))))
-	 
 ;; do this without set! and the this/ref switch?
 (define-syntax-rule (render (vars ...) body ...)
   (lambda (this)
     (compose-signals (vars ...)
-      (let ((newnode (begin body ...))
+      (let ((new-nodes (begin body ...))
 	    (ref (%inline .cloneNode this #f)))
-	(patch (.parentNode this) this newnode)))))
-;	(if (list? new-nodes)
-;	    (for-each (lambda (node)
-;			(node-append-child ref node))
-;		      new-nodes)
-;	    (node-append-child ref new-nodes))
-;	(replace-node ref this)
-;	(set! this ref)))))
+	(log new-nodes)
+	(if (list? new-nodes)
+	    (for-each (lambda (node)
+			(node-append-child ref node))
+		      new-nodes)
+	    (node-append-child ref new-nodes))
+	(replace-node ref this)
+	(set! this ref)))))
 
 (define (remove-all-children node)
   (for-each (lambda (child)
