@@ -24,21 +24,42 @@
 
 (register-callback "single-render" single-render)
 
-(define map-render
-  (render (messages count)
-	  (map (lambda (msg)
-		 (<div> (<text> msg)
-			(<text> count)
-			(<button> #:click
-				  (lambda ()
-				    (print "yay " msg)
-				    '((status . "reloading")))
-				  (<text> "click me"))))
-	       messages)))
+(define map-render3
+  (lambda (this)
+    (compose-signals (messages count)
+      (let ((ref (%inline .cloneNode this #f)))
+	(for-each (lambda (msg)
+		    (node-append-child
+		     ref
+		     (<div> (<div> (<b> (<text> msg)))
+			    (<div> (<text> count))
+			    (<div> (set-click
+				    (<button> (<text> "click me"))
+				    (callback (lambda ()
+						(print "yay " msg)
+						'((status . "reloading")))))))))
+		  messages)
+	(replace-node ref this)
+	(set! this ref)))))
 
-(register-callback "map-render" map-render)
+
+	;(replace-node ref this)
+	;(set! this ref)))))
+
+(define map-messages
+  (map-render messages (count)
+	      (lambda (msg)
+		(<div> (<div> (<b> (<text> msg)))
+		       (<div> (<text> " ducks" count))
+		       (<div> (<text> count))
+		       (<div> (set-click
+			       (<button> (<text> "click me"))
+			       (callback (lambda ()
+					   (print "yay " msg)
+					   '((status . "reloading"))))))))))
+
+(register-callback "map-messages" map-messages)
 
 (init  '((status . "Not loaded yet.")
 	 (messages . (8))
-	 (count . 20)))
-
+	 (count . 200)))

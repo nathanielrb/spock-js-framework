@@ -17,34 +17,41 @@
 
 (define (new-element name children class)
   (let ((elt (%inline document.createElement name)))
-    (%inline .classList.add elt class)
-    (map (lambda (child)
+    (when class
+      (%inline .classList.add elt class))
+    (for-each (lambda (child)
 	   (%inline .appendChild elt child))
 	 children)
     elt))
-    
-(define (<text> text)
-  (%inline document.createTextNode text))
 
 (define-syntax-rule (<div> children ...)
   (new-element "div" (list children ...) "class"))
 
-(define-syntax-rule (<button> event cb children ...)
-  (set-click
-   (new-element "button" (list children ...) "class")
-   (callback (lambda ()
-	       (send-vars (cb))))))
+(define-syntax-rule (<span> children ...)
+  (new-element "span" (list children ...) "class"))
 
-(define (remove node)
+(define-syntax-rule (<b> children ...)
+  (new-element "b" (list children ...) "class"))
+
+(define-syntax-rule (<i> children ...)
+  (new-element "i" (list children ...) "class"))
+
+(define-syntax-rule (<button> children ...)
+  (new-element "button" (list children ...) "class"))
+
+(define (<text> text)
+  (%inline document.createTextNode text))
+
+(define (remove-node node)
   (%inline .removeChild (.parentNode node) node))
 
-(define (insert-before node1 node2)
+(define (insert-node-before node1 node2)
   (%inline .insertBefore (.parentNode node2) node1 node2))
 
-(define (replace node1 node2)
+(define (replace-node node1 node2)
   (%inline .replaceChild (.parentNode node2) node1 node2))
 
-(define (append-child parent child)
+(define (node-append-child parent child)
   (%inline .appendChild parent child))
 
 (define (set-html elt content)
@@ -147,8 +154,6 @@
 (define (send-bindings var bindings)
   ((get var 'continuations) bindings))
 
-;; merge-alist-sets and three-way-split ... ??
-
 (define (three-way-split A B)
   (let loop ((As A)
 	     (Bs B)
@@ -216,21 +221,38 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; API
 
-(define-syntax-rule (render (vars ...) body)
+
+;; do this without set! and the this/ref switch?
+(define-syntax-rule (render (vars ...) body ...)
   (lambda (this)
     (compose-signals (vars ...)
-      (let ((new-nodes body)
+      (let ((new-nodes (begin body ...))
 	    (ref (%inline .cloneNode this #f)))
 	(log new-nodes)
 	(if (list? new-nodes)
 	    (for-each (lambda (node)
-			(append-child ref node))
+			(node-append-child ref node))
 		      new-nodes)
-	    (append-child ref new-nodes))
-	(replace ref this)
+	    (node-append-child ref new-nodes))
+	(replace-node ref this)
 	(set! this ref)))))
-	;(patch this ref)))))
 
+(define (remove-all-children node)
+  (for-each (lambda (child)
+	      (%inline .removeChild node child))
+	    (%inline Array.prototype.slice.call
+		     (%property-ref .childNodes node))))
+
+(define-syntax-rule (map-render map-var (other-vars ...) body-fn)
+  (lambda (this)
+    (compose-signals (map-var other-vars ...)
+      (let ((ref (%inline .cloneNode this #f)))
+	(remove-all-children this)
+	(for-each
+	 (lambda (var)
+	   (node-append-child this (body-fn var)))
+	 map-var)))))
+	
 (define-syntax-rule (bind-click (vars ...) body ...)
   (lambda (this)
     (compose-signals (vars ...)
@@ -238,6 +260,7 @@
 		     (callback (lambda (this)
 				 (let ((var-bindings (begin body ...)))
 				   (send-vars var-bindings))))))))
+
 (define (init bindings)
   (set! *inits* bindings)
   (map (lambda (e)
