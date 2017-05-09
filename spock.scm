@@ -64,23 +64,32 @@
 (define (text-element? elt)
   (or (string? elt) (number? elt)))
 
+;; do (cb) in CPS?
+
 (define (reify-element element)
-  ;;(print "NODE " element)
   (if (text-element? element)
       (make-text-element element)
-      (let* ((node (%inline document.createElement (element-name element))))
+      (let* ((node (%inline document.createElement (element-name element)))
+	     (cb (element-callback element)))
 	(class-add node element)
 	(for-each (lambda (child)
 		    (%inline .appendChild node (reify-element child)))
 		  (element-children element))
+	(when (procedure? cb)
+	  (set-click node (callback cb)))
 	node)))
+
+(define (class-add-class node class)
+  (%inline .classList.add node class))
 
 (define (class-add node elt)
   (let ((class (element-attribute-val elt 'class)))
-    ;;(print "CLASS " class)
     (when class
-	  (%inline .classList.add node (element-attribute-val elt 'class)))))
-
+      (if (string? class)
+	  (class-add-class node class)
+	  (map (lambda (c) (class-add-class node c))
+	       class)))))
+      
 (define (make-text-element text)
   (%inline document.createTextNode text))
 
@@ -100,9 +109,15 @@
   (assoc-val attr (element-attributes elt)))
 
 (define (element-children elt)
-  (and (pair? elt)
-       (caddr elt)))
+  (and (pair? elt) (caddr elt)))
 
+(define (set-callback elt cb)
+  (append elt (list cb)))
+
+(define (element-callback elt)
+  (and (pair? elt)
+       (car-safe (cdddr elt))));(cdr-safe (cdr-safe (cdr-safe elt))))))
+	
 (define-syntax-rule (<div> ((attr val) ...) children ...)
   (element "DIV" (list (cons (quote attr) val) ...) (list children ...)))
 
@@ -132,9 +147,11 @@
       (and (= (%property-ref .nodeType real) 3)
 	   (not (equal? (%property-ref .textContent real) virtual)))))
 
+(define (slice a)
+  (%inline Array.prototype.slice.call a))
+
 (define (children node)
-  (%inline Array.prototype.slice.call
-	   (%property-ref .childNodes node)))
+  (slice (%property-ref .childNodes node)))
 
 (define (car-safe p)
   (and (pair? p) (car p)))
@@ -216,26 +233,21 @@
 (define merge-bindings append)
 
 ;; thread *inits???
-(define-syntax-rule (put-continuations vars ...)
-  (call/cc
-   (lambda (k)
-     (map (lambda (var)
-	    (print "putting " var ": " k " into " (get var 'continuations))
-	    (put! var 'continuations
-		  (cons k (or (get var 'continuations) '()))))
-	  (list (quote vars) ...))
-     (list (assoc (quote vars) *inits*) ...))))
 
-;; use:
-;; (define (run) (letrec ((bindings (call/cc (lambda (k) (set! yield (lambda (vals) (k (append vals bindings)))) '(1))))) bindings))
-;;
-(define-syntax-rule (compose-signals (vars ...) body ...)
-  (let ((bindings '()))    
-    (let ((signals (put-continuations vars ...)))
-      (set! bindings (merge-bindings signals bindings))
+(define (put-cons! var property val)
+  (put! var property
+	(cons val (or (get var property) '()))))
+
+(define-syntax-rule (catch-vars (vars ...) body ...)
+  (letrec ((bindings (call/cc (lambda (k)
+				(map (lambda (var)
+				       (put-cons! var 'continuations
+						  (lambda (vals) (k (append vals bindings)))))
+				     (list (quote vars) ...))
+				(list (assoc (quote vars) *inits*) ...)))))
       (with-bindings (vars ...) bindings
 		     body ...)
-      (yield))))
+      (yield)))s
 
 (define (get-binding binding-name bindings)
   (let ((binding-pair (assoc binding-name bindings)))
@@ -312,7 +324,7 @@
 ;; do this without set! and the this/ref switch?
 (define-syntax-rule (render (vars ...) body ...)
   (lambda (this)
-    (compose-signals (vars ...)
+    (catch-vars (vars ...)
       (let ((ref (%inline .cloneNode this #f))
 	    (newnode (list (nodename this) '() (list body ...))))
 	(print "new " newnode)
@@ -334,7 +346,7 @@
 
 (define-syntax-rule (for xvar Xs (other-vars ...) body ...)
   (lambda (this)
-    (compose-signals (Xs other-vars ...)
+    (catch-vars (Xs other-vars ...)
       (let ((ref (%inline .cloneNode this #f))
 	    (newnode (list (nodename this) '()
 			   (apply append
@@ -346,7 +358,7 @@
 
 (define-syntax-rule (for2 xvar Xs (other-vars ...) body)
   (lambda (this)
-    (compose-signals (Xs other-vars ...)
+    (catch-vars (Xs other-vars ...)
       (let ((ref (%inline .cloneNode this #f)))
 	(remove-all-children this)
 	(for-each
@@ -356,7 +368,7 @@
 	
 (define-syntax-rule (bind-click (vars ...) body ...)
   (lambda (this)
-    (compose-signals (vars ...)
+    (catch-vars (vars ...)
 	  (set-click this
 		     (callback (lambda (this)
 				 (let ((var-bindings (begin body ...)))
@@ -364,7 +376,7 @@
 
 (define-syntax-rule (bind-change (vars ...) bodyf)
   (lambda (this)
-    (compose-signals (vars ...)
+    (catch-vars (vars ...)
 	  (set-change this
 		     (callback (lambda (this)
 				 (let ((var-bindings (bodyf this)))
@@ -372,7 +384,7 @@
 
 (define-syntax-rule (bind-input (vars ...) bodyf)
   (lambda (this)
-    (compose-signals (vars ...)
+    (catch-vars (vars ...)
 	  (set-input this
 		     (callback (lambda (this)
 				 (let ((var-bindings (bodyf this)))

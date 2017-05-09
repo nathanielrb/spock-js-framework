@@ -1,7 +1,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; App
 
-(define click1 (bind-click () '((status . "Loading..."))))
+(define click1 (bind-click () '((status . "Loading...") (class . "green"))))
 
 (register-callback "click1" click1)
 
@@ -14,7 +14,8 @@
       '()
       (cons start (range (+ 1 start) end))))
 
-(define click0 (bind-click (count) `((messages . ,(range 0 count)))))
+(define click0 (bind-click (count) `((messages . ,(range 0 count))
+				     (class . "green"))))
 
 (register-callback "click0" click0)
 
@@ -28,17 +29,19 @@
 
 (define single-render
   (render (status)
-	  (<b> ((class "green")) status)))
+	  (<b> ((class "blue")) status)))
 
 (register-callback "single-render" single-render)
 
 (define map-messages
-  (for msg messages (count)
+  (for msg messages (count class)
        (<div>  () (<b> () msg))
        (<div> ()  " ducks: " count)
 
-       (<div> {{class "click-me"}}
-	      (<button> () "click me"))))
+       (<div> {{class `("click-me" ,class)}}
+	      (set-callback
+	       (<button> () "click me")
+	       (lambda (event) (alert "Clicked"))))))
 ;;		      (set-click
 ;;		       (callback (lambda ()
 ;;				   (print "yay " msg)
@@ -48,4 +51,5 @@
 
 (init  `((status . "Not loaded yet.")
 	 (messages . ,(range 0 800));;(8 9 10))
-	 (count . 4)))
+	 (count . 4)
+	 (class . "blue")))
