@@ -1,13 +1,17 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; App
 
-(define click1 (bind-click () '((status . "Loading...") (class . "green"))))
+(define click1 (bind-click () '((status . "loaded.") (class . "blue"))))
 
 (register-callback "click1" click1)
 
-(define click2 (bind-click (count) (begin `((count . ,(+ count 1))))))
+(define click2 (bind-click (count) (begin `((class . "green")))))
 
 (register-callback "click2" click2)
+
+(define click3 (bind-click (count) (begin `((count . ,(+ count 1))))))
+
+(register-callback "click3" click3)
 
 (define (range start end)
   (if (equal? start end)
@@ -29,19 +33,22 @@
 
 (define single-render
   (render (status)
-	  (h "b" #f (vector status status))))
+	   (h "i" #f "Status: ")
+	   (h "b" (% "attrs" (% "class" "green"))
+	      (vector status status))))
 
 (register-callback "single-render" single-render)
 
 (define map-messages
-  (for msg messages (count class)
-       (h "div" #f
-	  (vector
-	   (h "div" #f msg)
-	   (h "div"  #f  (vector " ducks: " count))
+  (for msg messages (count class status)
+	   (<div> #f status)
+	   (<div> #f msg)
+	   ;;(h "div" (% "class" (% "green" (equal? class "green") "blue" (equal? class "blue")))
+	   (<div> (% "attrs" (% "class" class))
+		  (vector " ducks: " count))
 	   (h "div" #f
 	      (vector
-	       (h "button" #f "click me")))))))
+	       (h "button" #f "click me")))))
 ;; {{class `("click-me" ,class)}}
 ;;	      (set-callback
 ;;	       (<button> () "click me")
@@ -53,7 +60,7 @@
 
 (register-callback "map-messages" map-messages)
 
-(init  `((status . "Not loaded yet.")
-	 (messages . ,(range 0 8));;(8 9 10))
+(init  `((status . "initialized")
+	 (messages . ,(range 0 800));;(8 9 10))
 	 (count . 4)
 	 (class . "blue")))
