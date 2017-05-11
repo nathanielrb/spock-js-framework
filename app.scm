@@ -29,19 +29,23 @@
 
 (define single-render
   (render (status)
-	  (<b> ((class "blue")) status)))
+	  (h "b" #f (vector status status))))
 
 (register-callback "single-render" single-render)
 
 (define map-messages
   (for msg messages (count class)
-       (<div>  () (<b> () msg))
-       (<div> ()  " ducks: " count)
-
-       (<div> {{class `("click-me" ,class)}}
-	      (set-callback
-	       (<button> () "click me")
-	       (lambda (event) (alert "Clicked"))))))
+       (h "div" #f
+	  (vector
+	   (h "div" #f msg)
+	   (h "div"  #f  (vector " ducks: " count))
+	   (h "div" #f
+	      (vector
+	       (h "button" #f "click me")))))))
+;; {{class `("click-me" ,class)}}
+;;	      (set-callback
+;;	       (<button> () "click me")
+;;	       (lambda (event) (alert "Clicked"))))))
 ;;		      (set-click
 ;;		       (callback (lambda ()
 ;;				   (print "yay " msg)
@@ -50,6 +54,6 @@
 (register-callback "map-messages" map-messages)
 
 (init  `((status . "Not loaded yet.")
-	 (messages . ,(range 0 800));;(8 9 10))
+	 (messages . ,(range 0 8));;(8 9 10))
 	 (count . 4)
 	 (class . "blue")))

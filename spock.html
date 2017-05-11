@@ -1,8 +1,21 @@
 <html>
   <head>
     <script type="text/javascript" src="spock-runtime-debug.js"></script>
-    <script type="text/javascript" src="diffDOM.js"></script>
+    <script type="text/javascript" src="snabbdom/dist/snabbdom.js"></script>
+    <script type="text/javascript" src="snabbdom/dist/h.js"></script>
+    <script type="text/javascript" src="snabbdom/dist/snabbdom-attributes.js"></script>
+    <script type="text/javascript" src="snabbdom/dist/snabbdom-class.js"></script>
+    <script type="text/javascript" src="snabbdom/dist/snabbdom-props.js"></script>
+    <script type="text/javascript" src="snabbdom/dist/snabbdom-eventlisteners.js"></script>
 
+    <script>
+      var patch = snabbdom.init([
+        snabbdom_class,
+        snabbdom_props,
+        snabbdom_attributes,
+        snabbdom_eventlisteners
+      ]);
+    </script>
     <style>
       .green { border: 1px solid green; }
       .blue { border: 1px solid blue; }
@@ -12,7 +25,7 @@
 
     <div>
       <label>name</label>
-      <input oname="firstname" spock="changeme"/>
+      <input oname="firstname" ospock="changeme"/>
     </div>
     
     <div>
@@ -20,7 +33,7 @@
     </div>
     
     <button ospock="click0">click me (msgs)</button>
-    <button spock="click1">click me (status)</button>
+    <button ospock="click1">click me (status)</button>
     <button ospock="click2">click me (count)</button>
 
     <div>

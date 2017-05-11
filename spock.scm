@@ -30,11 +30,6 @@
 (define (set-html elt content)
   (set! (.innerHTML elt) content))
 
-(define dd (%inline "new diffDOM"))
-
-;(define (patch A B)
- ; (%inline .apply dd A (%inline .diff dd A B)))
-
 (define (spock-elements)
   (%inline Array.prototype.slice.call
 	   (%inline .querySelectorAll document.body "*[spock]")))
@@ -57,6 +52,18 @@
 
 (define (old-set-click elt cb)
   (set! (.onclick elt) cb) elt)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; snabbdom Virtual DOM
+
+;; (define (alist->js-obj alist)
+;;   ...
+
+(define (h selector props children)
+  (let ((kids (cond ((list? children) (list->vector children))
+		    ((or (vector? children) (string? children)) children)
+		    (else #f))))
+    (%inline "snabbdom.h" selector props kids)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Virtual DOM
@@ -162,7 +169,7 @@
 (define (empty? x)
   (not (and (void? x) (null? x) (not x))))
 
-(define (patch parent real virtual)
+(define (native-patch parent real virtual)
   (cond ((empty? real) (node-append-child parent (reify-element virtual)))
 	((empty? virtual) (remove-node real))
 	((changed? real virtual)
@@ -247,7 +254,7 @@
 				(list (assoc (quote vars) *inits*) ...)))))
       (with-bindings (vars ...) bindings
 		     body ...)
-      (yield)))s
+      (yield)))
 
 (define (get-binding binding-name bindings)
   (let ((binding-pair (assoc binding-name bindings)))
@@ -320,15 +327,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; API
 
-	 
 ;; do this without set! and the this/ref switch?
 (define-syntax-rule (render (vars ...) body ...)
   (lambda (this)
     (catch-vars (vars ...)
       (let ((ref (%inline .cloneNode this #f))
-	    (newnode (list (nodename this) '() (list body ...))))
-	(print "new " newnode)
-	(patch (.parentNode this) this newnode)))))
+	    (newnode (h (nodename this) #f (vector body ...)))) ; (list (nodename this) '() (list body ...))))	
+	(print "new ") (log newnode)
+	(%inline "patch" this newnode)))))
+	;;(patch (.parentNode this) this newnode)))))
 
 ;;	(if (list? new-nodes)
 ;;	    (for-each (lambda (node)
@@ -348,13 +355,15 @@
   (lambda (this)
     (catch-vars (Xs other-vars ...)
       (let ((ref (%inline .cloneNode this #f))
-	    (newnode (list (nodename this) '()
-			   (apply append
-			   (map
-			    (lambda (xvar)
-			      ((lambda (xvar) (list body ...)) xvar))
-			    Xs)))))
-	(patch (.parentNode this) this newnode)))))
+	    (newnode (h (nodename this) #f ;; (list (nodename this) '()
+			(apply append
+			       (map
+				(lambda (xvar)
+				  ((lambda (xvar) (list body ...)) xvar))
+				Xs)))))
+	(log newnode)
+	;;(patch (.parentNode this) this newnode)))))
+	(%inline "patch" this newnode)))))
 
 (define-syntax-rule (for2 xvar Xs (other-vars ...) body)
   (lambda (this)
