@@ -238,22 +238,20 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; API
 
+(define (patch old new)
+  (%inline "patch" old new))
+
 ;; do this without set! and the this/ref switch?
 (define-syntax-rule (render (vars ...) body ...)
   (lambda (this)
     (let ((ref this))
       (catch-vars (vars ...)
         (let ((newnode (h (nodename this) #f (vector body ...))))
-	  ;; (list (nodename this) '() (list body ...))))	
-	  ;;(print "new ") (log newnode)
-	  (log newnode)
-	  (%inline "patch" ref newnode)
-	  (set! ref newnode))))))
-	;;(patch (.parentNode this) this newnode)))))
+	  (set! ref (patch ref newnode)))))))
 
 (define-syntax-rule (for xvar Xs (other-vars ...) body ...)
   (lambda (this)
-    (let ((ref this)) ;;  (%inline .cloneNode this #f)))
+    (let ((ref this))
       (catch-vars (Xs other-vars ...)
         (let ((newnode (h (nodename this) #f ;; (list (nodename this) '()
 			  (apply append
@@ -261,9 +259,7 @@
 				  (lambda (xvar)
 				    ((lambda (xvar) (list body ...)) xvar))
 				  Xs)))))
-	(%inline "patch" ref newnode)
-	(set! ref newnode))))))
-	
+	  (set! ref (patch ref newnode)))))))
 	
 (define-syntax-rule (bind-click (vars ...) body ...)
   (lambda (this)

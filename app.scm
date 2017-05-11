@@ -40,15 +40,24 @@
 (register-callback "single-render" single-render)
 
 (define map-messages
-  (for msg messages (count class status)
-	   (<div> #f status)
-	   (<div> #f msg)
-	   ;;(h "div" (% "class" (% "green" (equal? class "green") "blue" (equal? class "blue")))
-	   (<div> (% "attrs" (% "class" class))
-		  (vector " ducks: " count))
-	   (h "div" #f
+  (for msg messages (count class status selected)
+       (<div> (% "on" (% "mouseover" (callback
+				      (lambda (this)
+					(log msg)
+					(send-vars `((selected . ,msg)))))))
 	      (vector
-	       (h "button" #f "click me")))))
+	       (<div> #f status)
+	       (<div> #f msg)
+	       ;;(h "div" (% "class" (% "green" (equal? class "green") "blue" (equal? class "blue")))
+	       (<div> (% "attrs" (% "class" class))
+		      (vector " ducks: " count))
+	       (h "div" (% "class" (% "selected" (equal? msg selected)))
+		  (vector
+		   msg "/" (or selected "none")
+		   (h "button"
+		      (% "on" (% "click" (callback (lambda (this) (log msg)))))
+		      "click me")))))) )
+
 ;; {{class `("click-me" ,class)}}
 ;;	      (set-callback
 ;;	       (<button> () "click me")
@@ -58,9 +67,28 @@
 ;;				   (print "yay " msg)
 ;;				   '((status . "reloading")))))))))
 
-(register-callback "map-messages" map-messages)
+
+(define map-table
+  (render (selected)
+    (<div> #f
+	   (map (lambda (x)
+		  (<div> #f
+			 (map (lambda (y)
+				(<div> (% "class" (% "cell" #t "selected" (equal? (+ x y) selected))
+					  "on" (% "mouseover" (callback
+							       (lambda (this)
+								 (send-vars `((selected . ,(+ x y))))))))
+				       (vector x ", " y)))
+			      (range 0 10))))
+		(range 0 10)))))
+
+(register-callback "map-messages" map-table)
+
+;(register-callback "map-messages" map-messages)
+
 
 (init  `((status . "initialized")
 	 (messages . ,(range 0 800));;(8 9 10))
 	 (count . 4)
-	 (class . "blue")))
+	 (class . "blue")
+	 (selected . #f)))
