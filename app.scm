@@ -3,15 +3,14 @@
 
 (define click1 (bind-click () '((status . "loaded.") (class . "blue"))))
 
-(register-callback "click1" click1)
+(register-component "click1" click1)
 
 (define click2 (bind-click (count) (begin `((class . "green")))))
 
-(register-callback "click2" click2)
-
-(define click3 (bind-click (count) (begin `((count . ,(+ count 1))))))
-
-(register-callback "click3" click3)
+(register-component "click3"
+  (bind .onclick (count)
+	(log count) (send (selected count)
+			  (values count (+ count 1)))))
 
 (define (range start end)
   (if (equal? start end)
@@ -21,7 +20,7 @@
 (define click0 (bind-click (count) `((messages . ,(range 0 count))
 				     (class . "green"))))
 
-(register-callback "click0" click0)
+(register-component "click0" click0)
 
 (define changeme
   (bind-change ()
@@ -29,7 +28,7 @@
 		 `((status . ,(%property-ref
 			       .value (%property-ref .target this)))))))
 
-(register-callback "changeme" changeme)
+(register-component "changeme" changeme)
 
 (define single-render
   (render (status)
@@ -37,14 +36,15 @@
 	   (h "b" (% "attrs" (% "class" "green"))
 	      (vector status status))))
 
-(register-callback "single-render" single-render)
+(register-component "single-render" single-render)
 
 (define map-messages
   (for msg messages (count class status selected)
        (<div> (% "on" (% "mouseover" (callback
 				      (lambda (this)
-					(log msg)
-					(send-vars `((selected . ,msg)))))))
+					(send (selected) msg)))))
+					;;;(log msg)
+					;;(send-vars `((selected . ,msg)))))))
 	      (vector
 	       (<div> #f status)
 	       (<div> #f msg)
@@ -74,21 +74,36 @@
 	   (map (lambda (x)
 		  (<div> #f
 			 (map (lambda (y)
-				(<div> (% "class" (% "cell" #t "selected" (equal? (+ x y) selected))
-					  "on" (% "mouseover" (callback
-							       (lambda (this)
-								 (send-vars `((selected . ,(+ x y))))))))
-				       (vector x ", " y)))
-			      (range 0 10))))
-		(range 0 10)))))
+				(<div>
+				 (% "class" (% "cell" #t "selected" (equal? (+ x y) selected))
+				    "on" (% "mouseover" (callback
+							 (lambda (this)
+							   (send (selected-square) (+ x y))))))
+				 (vector x ", " y)))
+			      (range 0 20))))
+		(range 0 20)))))
 
-(register-callback "map-messages" map-table)
+(register-component "map-messages" map-table)
 
-;(register-callback "map-messages" map-messages)
+;; (register-component "map-messages" map-messages)
+
 
 
 (init  `((status . "initialized")
 	 (messages . ,(range 0 800));;(8 9 10))
 	 (count . 4)
 	 (class . "blue")
-	 (selected . #f)))
+	 (selected . #f))
+       (catch-vars (selected-square) (send (selected) (+ selected-square 1)))
+       (catch-vars (selected-square)
+		   (ajax "GET"
+			 "http://lookup.dbpedia.org/api/search.asmx/PrefixSearch?QueryClass=&MaxHits=5&QueryString=Brussels"
+			 ;;(jstring (string-append "http://www.tenforce.com/" selected))
+			 (lambda (x)
+			   (log (.responseXML (.currentTarget x))); (.responseText x))
+			   (send (selected) (+ selected-square 2))))))
+
+;;	    (log "yup"))
+	    ;(when selected-square
+	     ; (send (selected) (+ 1 selected-square))))
+

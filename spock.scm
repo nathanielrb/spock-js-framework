@@ -40,6 +40,10 @@
 (define (set-event event elt cb)
   (set! (event elt) cb) elt)
 
+(define-syntax-rule (bind-event event elt cb)
+  (begin (set! (event elt) cb)
+	 elt))
+
 (define-syntax-rule (define-event name event)
   (define (name elt cb)
     (set! (event elt) cb) elt))
@@ -75,41 +79,43 @@
 ;; snabbdom Virtual DOM
 
 ;; (define (alist->js-obj alist)
-;;   ...
 
 (define (h selector props children)
   (let ((kids (cond ((list? children) (list->vector children))
 		    ((or (vector? children) (string? children)) children)
 		    (else #f))))
-    ;;(print "PROPS:") (log props)
     (%inline "snabbdom.h" selector props kids)))
+
+(define (patch old new)
+  (%inline "patch" old new))
 
 (define-syntax define-element
   (syntax-rules ()
     ((define-element name elt)
      (define-syntax name
        (syntax-rules ()
+	 ((name selector)
+	  (lambda (props children)
+	    (h (jstring (string-append elt selector))
+	       props children)))
 	 ((name props children)
 	  (h elt props children)))))))
 
 (define-element <div> "div")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Events 
+;; Events
 
-(define (ajax method path)
+(define (ajax-cb x)
+  (log (.responseText x)))
+
+(define (ajax method path cb)
   (let ((x (%inline "new XMLHttpRequest")))
     (log x)
     (%inline ".open" x method path #t)
     (set! (.onreadystatechange x)
-	  (callback (lambda ()
-		      (%inline "alert" 5)
-		      (log (.responseText x)))))
+	  (callback cb))
     (%inline ".send" x)))
-
-(define (register-callback name cb)
-  (let ((symname (if (string? name) (string->symbol name) name)))
-    (put! symname 'callback cb)))
 
 (define (get-callback name)
   (let ((symname (if (string? name) (string->symbol name) name)))
@@ -163,9 +169,8 @@
 						  (lambda (vals) (k (append vals bindings)))))
 				     (list (quote vars) ...))
 				(list (assoc (quote vars) *inits*) ...)))))
-      (with-bindings (vars ...) bindings
-		     body ...)
-      (yield)))
+    (with-bindings (vars ...) bindings body ...)
+    (yield)))
 
 (define (get-binding binding-name bindings)
   (let ((binding-pair (assoc binding-name bindings)))
@@ -232,16 +237,26 @@
 	       (let ((var (car var-pair)))
 		 (cons var (get var 'continuations))))
 	     var-bindings)))
-  (print "QUEUE: " *queue*)
   (yield))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; API
 
-(define (patch old new)
-  (%inline "patch" old new))
+(define (register-component name cb)
+  (let ((symname (if (string? name) (string->symbol name) name)))
+    (put! symname 'callback cb)))
 
-;; do this without set! and the this/ref switch?
+;; (send (a b) (... (values 1 2)))
+(define-syntax send
+  (syntax-rules ()
+    ((send (vars ...) body)
+     (call-with-values
+	 (lambda () body)
+       (lambda (vars ...)
+	 (send-vars
+	  (list (cons (quote vars) vars) ...)))))))
+
+;; possible without set! and the this/ref switch?
 (define-syntax-rule (render (vars ...) body ...)
   (lambda (this)
     (let ((ref this))
@@ -260,7 +275,14 @@
 				    ((lambda (xvar) (list body ...)) xvar))
 				  Xs)))))
 	  (set! ref (patch ref newnode)))))))
-	
+
+(define-syntax-rule (bind event (vars ...) body ...)
+  (lambda (this)
+    (catch-vars (vars ...)
+      (bind-event event this
+		 (callback (lambda (this)
+			     body ...))))))
+
 (define-syntax-rule (bind-click (vars ...) body ...)
   (lambda (this)
     (catch-vars (vars ...)
@@ -285,11 +307,13 @@
 				 (let ((var-bindings (bodyf this)))
 				   (send-vars var-bindings))))))))
 
-(define (init bindings)
-  (set! *inits* bindings)
-  (map (lambda (e)
-	 (let ((name (%inline .getAttribute e "spock")))
-	   ((get-callback name) e)))
-       (spock-elements))
-  (call/cc (lambda (k) (set! waiting k)))
-  (begin (print "waiting...")))
+(define-syntax-rule (init bindings body ...)
+  (begin
+    (set! *inits* bindings)
+    (map (lambda (e)
+	   (let ((name (%inline .getAttribute e "spock")))
+	     ((get-callback name) e)))
+	 (spock-elements))
+    body ...
+    (call/cc (lambda (k) (set! waiting k)))
+    (begin (print "waiting..."))))
