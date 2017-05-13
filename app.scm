@@ -50,15 +50,18 @@
 	 (class . "blue")
 	 (selected . #f)) )
 
+;; (register-async) or something similar so only fires when it receives...
+
 (catch-vars (selected-square)
 	    (send (selected) (+ selected-square 1)))
 
 (catch-vars (selected-square)
-	    (ajax "GET"
-		  "http://lookup.dbpedia.org/api/search.asmx/PrefixSearch?QueryClass=&MaxHits=5&QueryString=Brussels"
-		  (cb (selected)
-		      (lambda (x)
-			(log (.responseXML (.currentTarget x))); (.responseText x))
-			(+ selected-square 2)))))
+;	    (when (selected-square)
+	      (ajax "GET"
+		    "http://lookup.dbpedia.org/api/search.asmx/PrefixSearch?QueryClass=&MaxHits=5&QueryString=Brussels"
+		    (cb (selected)
+			(lambda (x)
+			  (log (.responseXML (.currentTarget x))); (.responseText x))
+			  (+ selected-square 2)))))
 
 (start)
