@@ -114,7 +114,7 @@
     (log x)
     (%inline ".open" x method path #t)
     (set! (.onreadystatechange x)
-	  (callback cb))
+	  cb)
     (%inline ".send" x)))
 
 (define (get-callback name)
@@ -257,55 +257,41 @@
 	  (list (cons (quote vars) vars) ...)))))))
 
 ;; possible without set! and the this/ref switch?
-(define-syntax-rule (render (vars ...) body ...)
+
+(define-syntax-rule (render ref (vars ...) body ...)
+  (catch-vars (vars ...)
+    (let ((newnode (h (nodename ref) #f (vector body ...))))
+      (set! ref (patch ref newnode)))))
+
+(define-syntax-rule (render-this (vars ...) body ...)
   (lambda (this)
     (let ((ref this))
       (catch-vars (vars ...)
-        (let ((newnode (h (nodename this) #f (vector body ...))))
-	  (set! ref (patch ref newnode)))))))
+       (let ((newnode (h (nodename this) #f (vector body ...))))
+	 (set! ref (patch ref newnode)))))))
 
-(define-syntax-rule (for xvar Xs (other-vars ...) body ...)
-  (lambda (this)
-    (let ((ref this))
-      (catch-vars (Xs other-vars ...)
-        (let ((newnode (h (nodename this) #f ;; (list (nodename this) '()
-			  (apply append
-				 (map
-				  (lambda (xvar)
-				    ((lambda (xvar) (list body ...)) xvar))
-				  Xs)))))
-	  (set! ref (patch ref newnode)))))))
+(define-syntax-rule (bind this event (vars ...) body ...)
+  (catch-vars (vars ...)
+    (bind-event event this
+		(callback (lambda (this)
+			    body ...)))))
 
-(define-syntax-rule (bind event (vars ...) body ...)
+(define-syntax-rule (bind-this event (vars ...) body ...)
   (lambda (this)
     (catch-vars (vars ...)
       (bind-event event this
 		 (callback (lambda (this)
 			     body ...))))))
 
-(define-syntax-rule (bind-click (vars ...) body ...)
-  (lambda (this)
-    (catch-vars (vars ...)
-	  (set-click this
-		     (callback (lambda (this)
-				 (let ((var-bindings (begin body ...)))
-				   (send-vars var-bindings))))))))
-
-(define-syntax-rule (bind-change (vars ...) bodyf)
-  (lambda (this)
-    (catch-vars (vars ...)
-	  (set-change this
-		     (callback (lambda (this)
-				 (let ((var-bindings (bodyf this)))
-				   (send-vars var-bindings))))))))
-
-(define-syntax-rule (bind-input (vars ...) bodyf)
-  (lambda (this)
-    (catch-vars (vars ...)
-	  (set-input this
-		     (callback (lambda (this)
-				 (let ((var-bindings (bodyf this)))
-				   (send-vars var-bindings))))))))
+(define-syntax cb
+  (syntax-rules ()
+    ((cb (vars ...) body)
+     (callback
+      (lambda (event)
+	(send (vars ...)
+	      (if (procedure? body)
+		  (body event)
+		  body)))))))
 
 (define-syntax-rule (init bindings body ...)
   (begin
@@ -313,7 +299,11 @@
     (map (lambda (e)
 	   (let ((name (%inline .getAttribute e "spock")))
 	     ((get-callback name) e)))
-	 (spock-elements))
-    body ...
-    (call/cc (lambda (k) (set! waiting k)))
-    (begin (print "waiting..."))))
+	 (spock-elements)) ))
+;    body ...
+ ;   (call/cc (lambda (k) (set! waiting k)))
+  ;  (begin (print "waiting..."))))
+
+(define (start)
+  (call/cc (lambda (k) (set! waiting k)))
+  (begin (print "waiting...")))
