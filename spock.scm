@@ -163,10 +163,10 @@
 
 (define-syntax-rule (catch-vars (vars ...) body ...)
   (letrec ((bindings (call/cc (lambda (k)
-				(map (lambda (var)
-				       (put-cons! var 'continuations
-						  (lambda (vals) (k (append vals bindings)))))
-				     (list (quote vars) ...))
+				(let ((K (lambda (vals) (k (append vals bindings)))))
+				  (map (lambda (var)
+					 (put-cons! var 'continuations K))
+				       (list (quote vars) ...)))
 				(list (assoc (quote vars) *inits*) ...)))))
     (with-bindings (vars ...) bindings body ...)
     (yield)))
@@ -286,9 +286,9 @@
      (callback
       (lambda (event)
 	(send (vars ...)
-	      (if (procedure? body)
-		  (body event)
-		  body)))))))
+	      ;(if (procedure? body)
+		  (body event)))))))
+	;	  body)))))))
 
 (define-syntax-rule (init bindings body ...)
   (begin

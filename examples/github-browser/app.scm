@@ -19,7 +19,8 @@
 	     (if (equal? (.type file) "dir")
 		   (<div> (% "on"
 			     (% "click" (cb (newfile current-files)
-					    (values (.url file) files))))
+					    (lambda (event)
+					      (values (.url file) files)))))
 			  (.path file))
 		   (<div> #f (.path file)))))
 	   files))))
@@ -32,6 +33,7 @@
 	    (when repo
 	      (let ((url (string-append
 			  "https://api.github.com/repos/" repo "/contents")))
+		(print "AJAX")
 		(ajax "GET" (jstring url)
 		      (cb (raw-files)
 			  (lambda (response)
@@ -60,11 +62,13 @@
 ;;       current-files))
 
 
-(catch-vars (newfile current-files)
+(catch-vars (current-files newfile)
   (when newfile
+    (print "AJAX2")
     (ajax "GET" (jstring newfile)
-	  (cb (bob)
+	  (cb (bobby)
 	      (lambda (response)
+		(log response)
 		(let ((newfiles (.response (.currentTarget response))))
 		  (insert-files current-files newfiles newfile)))))))
 (catch-vars (bob)
