@@ -159,3 +159,10 @@
   (let ((first (car *queue*)))
     (set! *queue* (cdr *queue*))
     first))
+
+(define-syntax cons-save
+  (syntax-rules ()
+    ((cons-save top k kar kdr)
+     (let ((rest kdr))
+       (let ((first (call/cc (lambda (cc) (put! k 'cont cc) kar))))
+	 (top (cons first rest)))))))

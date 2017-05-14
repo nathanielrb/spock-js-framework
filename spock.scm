@@ -111,10 +111,9 @@
 
 (define (ajax method path cb)
   (let ((x (%inline "new XMLHttpRequest")))
-    (log x)
     (%inline ".open" x method path #t)
-    (set! (.onreadystatechange x)
-	  cb)
+    (set! (.onreadystatechange x) cb)
+    (set! (.responseType x) "json")
     (%inline ".send" x)))
 
 (define (get-callback name)
@@ -276,12 +275,10 @@
 		(callback (lambda (this)
 			    body ...)))))
 
-(define-syntax-rule (bind-this event (vars ...) body ...)
+(define-syntax-rule (bind-this event (vars ...) cb)
   (lambda (this)
     (catch-vars (vars ...)
-      (bind-event event this
-		 (callback (lambda (this)
-			     body ...))))))
+      (bind-event event this cb))))
 
 (define-syntax cb
   (syntax-rules ()

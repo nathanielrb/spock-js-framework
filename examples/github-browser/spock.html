@@ -1,0 +1,39 @@
+<html>
+  <head>
+    <script type="text/javascript" src="../../spock-runtime-debug.js"></script>
+    <script type="text/javascript" src="../../snabbdom/dist/snabbdom.js"></script>
+    <script type="text/javascript" src="../../snabbdom/dist/h.js"></script>
+    <script type="text/javascript" src="../../snabbdom/dist/snabbdom-attributes.js"></script>
+    <script type="text/javascript" src="../../snabbdom/dist/snabbdom-class.js"></script>
+    <script type="text/javascript" src="../../snabbdom/dist/snabbdom-props.js"></script>
+    <script type="text/javascript" src="../../snabbdom/dist/snabbdom-eventlisteners.js"></script>
+
+    <script>
+      var patch = snabbdom.init([
+        snabbdom_class.default,
+        snabbdom_props.default,
+        snabbdom_attributes.default,
+        snabbdom_eventlisteners.default
+      ]);
+    </script>
+    <style>
+      .green { border: 1px solid green; }
+      .blue { border: 1px solid blue; }
+      .selected { background: beige }
+      .cell { display: inline-block; padding: 10px; }
+    </style>
+  </head>
+  <body>
+
+    <div>
+      <label>repository</label>
+      <input type="text" spock="change-repository"/>
+    </div>
+    
+    <div>
+      <div spock="explorer">render me</div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

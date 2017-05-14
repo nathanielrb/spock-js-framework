@@ -2,9 +2,11 @@
 ;; App
 
 (register-component "click"
-  (bind-this .onclick (count)
-	(log count) (send (selected count)
-			  (values count (+ count 1)))))
+		    (bind-this .onclick (count)
+			       (callback
+				(lambda (event)
+				  (log count) (send (selected count)
+						    (values count (+ count 1)))))))
 
 (register-component "showarg"
   (lambda (this)	    
@@ -33,11 +35,15 @@
 			 (map (lambda (y)
 				(<div>
 				 (% "class" (% "cell" #t "selected" (equal? (+ x y) selected))
-				    "on" (% "mouseover" (cb (selected-square) (+ x y))))
-					    ;;(callback
-							 ;;(lambda (this)
-							  ;; (send (selected-square) (+ x y))))))
-				 "-"));;(vector x ", " y)))
+				    "on" (% "click" (cb (selected-square) (+ x y))))
+				 (let* ((c #f)
+					(n (call/cc (lambda (k) (set! c k) 0))))
+				   (vector
+				    (<div> (% "class" (% "green" #t)
+					      "on" (% "mouseover" (callback
+							      (lambda (event)
+								(c (+ n 1))))))
+					   (vector n))))))
 			      (range 0 20))))
 		(range 0 20)))))
 
