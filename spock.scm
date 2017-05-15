@@ -103,6 +103,8 @@
 
 (define-element <div> "div")
 
+(define-element <a> "a")
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Events
 
@@ -262,12 +264,12 @@
     (let ((newnode (h (nodename ref) #f (vector body ...))))
       (set! ref (patch ref newnode)))))
 
-(define-syntax-rule (render-this (vars ...) body ...)
+(define-syntax-rule (render-this (vars ...) body)
   (lambda (this)
     (let ((ref this))
       (catch-vars (vars ...)
-       (let ((newnode (h (nodename this) #f (vector body ...))))
-	 (set! ref (patch ref newnode)))))))
+		  ;;(let ((newnode body)) ;(h (nodename this) #f (vector body ...))))
+	 (set! ref (patch ref body))))))
 
 (define-syntax-rule (bind this event (vars ...) body ...)
   (catch-vars (vars ...)

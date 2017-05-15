@@ -1,14 +1,22 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; App
 
-(register-component "change-repository"
+(register-component "change-user"
   (bind-this .onchange ()
-	     (cb (repo)
+	     (cb (user)
 	      (lambda (event)
 		(.value (.target event))))))
-	       ;(let ((repo (.value
-					;;(send (repository) repo)
 
+;; why can't I cons on an empty <option>???
+(register-component "choose-repository"
+  (render-this (repos)
+    (h "select" (% "on"
+		   (% "change" (cb (repo)
+				   (lambda (event)
+				     (.value (.target event))))))
+       (map (lambda (repo)
+	      (h "option" #f (.name repo)))
+	    repos))))
 
 (register-component "explorer"
   (render-this (files)
@@ -17,11 +25,13 @@
 	     (let ((file (car file-pair))
 		   (subfiles (cdr file-pair)))
 	     (if (equal? (.type file) "dir")
-		   (<div> (% "on"
-			     (% "click" (cb (newfile current-files)
-					    (lambda (event)
-					      (values (.url file) files)))))
-			  (.path file))
+		 (<div> #f
+			(vector
+			 (<a> (% "props" (% "href" "#")
+				 "on" (% "click" (cb (newfile current-files)
+						     (lambda (event)
+						       (values (.url file) files)))))
+			      (.path file))))
 		   (<div> #f (.path file)))))
 	   files))))
 
@@ -29,10 +39,22 @@
 
        )
 
-(catch-vars (repo)
-	    (when repo
+(catch-vars (user)
+	    (when user
 	      (let ((url (string-append
-			  "https://api.github.com/repos/" repo "/contents")))
+			  "https://api.github.com/users/" user "/repos")))
+		(print "AJAX")
+		(ajax "GET" (jstring url)
+		      (cb (repos)
+			  (lambda (response)
+			    (log (.response (.currentTarget response)))
+			    (.response (.currentTarget response))))))))
+
+
+(catch-vars (user repo)
+	    (when (and user repo)
+	      (let ((url (string-append
+			  "https://api.github.com/repos/" user "/" repo "/contents")))
 		(print "AJAX")
 		(ajax "GET" (jstring url)
 		      (cb (raw-files)
