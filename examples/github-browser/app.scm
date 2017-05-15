@@ -10,13 +10,15 @@
 ;; why can't I cons on an empty <option>???
 (register-component "choose-repository"
   (render-this (repos)
-    (h "select" (% "on"
-		   (% "change" (cb (repo)
-				   (lambda (event)
-				     (.value (.target event))))))
-       (map (lambda (repo)
-	      (h "option" #f (.name repo)))
-	    repos))))
+    (<select> (% "on" (% "change" (cb (repo)
+				      (lambda (event)
+					(.value (.target event))))))
+	      (cons (<option> (% "props" (% "value" #f))  "----")
+		    (map (lambda (repo)
+			   (<option> #f (.name repo)))
+			 (if (vector? repos)
+			     (vector->list repos)
+			     '()))))))
 
 (register-component "explorer"
   (render-this (files)
@@ -35,9 +37,7 @@
 		   (<div> #f (.path file)))))
 	   files))))
 
-(init  `((repository . "cm-typographic-studio/Cetri"))
-
-       )
+(init '())
 
 (catch-vars (user)
 	    (when user

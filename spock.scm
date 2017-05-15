@@ -103,7 +103,27 @@
 
 (define-element <div> "div")
 
+(define-element <h1> "h1")
+
+(define-element <h2> "h2")
+
+(define-element <h3> "h3")
+
+(define-element <h4> "h4")
+
+(define-element <select> "select")
+
+(define-element <option> "option")
+
+(define-element <input> "input")
+
 (define-element <a> "a")
+
+(define-element <span> "span")
+
+(define-element <b> "b")
+
+(define-element <i> "i")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Events
@@ -268,8 +288,10 @@
   (lambda (this)
     (let ((ref this))
       (catch-vars (vars ...)
-		  ;;(let ((newnode body)) ;(h (nodename this) #f (vector body ...))))
-	 (set! ref (patch ref body))))))
+        (let ((newnode body)) ;(h (nodename this) #f (vector body ...))))
+	  (if newnode
+	      (set! ref (patch ref newnode))
+	      ref))))))
 
 (define-syntax-rule (bind this event (vars ...) body ...)
   (catch-vars (vars ...)
