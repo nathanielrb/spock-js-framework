@@ -128,6 +128,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Events
 
+;; TO DO
+;; Handle different states (loading, done, error...)
+
 (define (ajax-cb x)
   (log (.responseText x)))
 
