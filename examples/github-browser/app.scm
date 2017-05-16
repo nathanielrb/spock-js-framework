@@ -43,24 +43,24 @@
 	    (when user
 	      (let ((url (string-append
 			  "https://api.github.com/users/" user "/repos")))
-		(print "AJAX")
 		(ajax "GET" (jstring url)
-		      (cb (repos)
-			  (lambda (response)
-			    (log (.response (.currentTarget response)))
-			    (.response (.currentTarget response))))))))
+                      (lambda (response)
+                        (send (repos)
+                              (begin
+                                (log (.response (.currentTarget response)))
+                                (.response (.currentTarget response)))))))))
 
 
 (catch-vars (user repo)
 	    (when (and user repo)
 	      (let ((url (string-append
 			  "https://api.github.com/repos/" user "/" repo "/contents")))
-		(print "AJAX")
 		(ajax "GET" (jstring url)
-		      (cb (raw-files)
-			  (lambda (response)
-			    (log (.response (.currentTarget response)))
-			    (.response (.currentTarget response))))))))
+                      (lambda (response)
+                        (send (raw-files)
+                              (begin
+                                (log (.response (.currentTarget response)))
+                                (.response (.currentTarget response)))))))))
 
 (define (list-files files)
   (map (lambda (f)
@@ -88,11 +88,13 @@
   (when newfile
     (print "AJAX2")
     (ajax "GET" (jstring newfile)
-	  (cb (bobby)
-	      (lambda (response)
-		(log response)
-		(let ((newfiles (.response (.currentTarget response))))
-		  (insert-files current-files newfiles newfile)))))))
+          (lambda (response)
+            (send (bobby)
+                  (begin
+                    (log response)
+                    (let ((newfiles (.response (.currentTarget response))))
+                      (insert-files current-files newfiles newfile))))))))
+
 (catch-vars (bob)
 	    (print "BOB")
 	    (log bob))

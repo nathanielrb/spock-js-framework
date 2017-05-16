@@ -137,7 +137,13 @@
 (define (ajax method path cb)
   (let ((x (%inline "new XMLHttpRequest")))
     (%inline ".open" x method path #t)
-    (set! (.onreadystatechange x) cb)
+    (set! (.onload x)
+      (callback
+       (lambda (response)
+         (if (equal? (.status x) 200)
+             (cb response)
+             (begin (log "Ajax error")
+                    (log event))))))
     (set! (.responseType x) "json")
     (%inline ".send" x)))
 
@@ -313,9 +319,7 @@
      (callback
       (lambda (event)
 	(send (vars ...)
-	      ;(if (procedure? body)
-		  (body event)))))))
-	;	  body)))))))
+              (body event)))))))
 
 (define-syntax-rule (init bindings body ...)
   (begin
