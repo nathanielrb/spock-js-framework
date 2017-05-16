@@ -1,0 +1,10 @@
+* Core
+
+** TODO harmonize snabbdom interface
+*** TODO 1 argument not css selectors but single child ...
+
+* Github Browser
+
+** TODO tree structure
+*** TODO add/remove subtree
+*** TODO locking for consecutive ajax-requests to get updated base tree
