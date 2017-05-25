@@ -119,6 +119,10 @@
 
 (define-element <a> "a")
 
+(define-element <ul> "ul")
+
+(define-element <li> "li")
+
 (define-element <span> "span")
 
 (define-element <b> "b")
