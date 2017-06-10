@@ -119,6 +119,11 @@
 
 (define-element <a> "a")
 
+(define (a-click class text cb)
+  (<a> (% "props" (% "href" "#" "class" class)
+	  "on" (% "click" cb))
+       text))
+
 (define-element <ul> "ul")
 
 (define-element <li> "li")

@@ -1,4 +1,83 @@
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Github API
+
+(define (github-api-call uri cb)
+  (ajax "GET" (jstring uri)
+	(lambda (response)
+	  (log (.response (.currentTarget response)))
+	  (cb (.response (.currentTarget response))))))
+
+(define (github-api-repos user cb)
+  (github-api-call
+   (string-append "https://api.github.com/users/" user "/repos")
+   cb))
+
+(define (github-api-repo user repo cb)
+  (github-api-call
+   (string-append "https://api.github.com/repos/" user "/" repo "/contents")
+   cb))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Model
+
+(define (make-filetree file children)
+  (cons file children))
+
+(define (make-empty-filetree file)
+  (make-filetree file '()))
+
+(define (make-filetree-children files)
+  (map make-empty-filetree files))
+
+(define (filetree-file filetree)
+  (car filetree))
+
+(define (filetree-children filetree)
+  (cdr filetree))
+
+(define (filetree-path filetree)
+  (.path (filetree-file filetree)))
+
+(define (filetree-type filetree)
+  (.type (filetree-file filetree)))
+
+(define (filetree-name filetree)
+  (.name (filetree-file filetree)))
+
+(define (substring=? str1 str2)
+  (equal? str1 (substring str2 0 (string-length str1))))
+
+(define (filetree-replace-children file children)
+  (make-filetree (filetree-file file) children))
+
+(define (filetree-insert-children filetree children path)
+  (print "inserting " path " into " (filetree-path filetree))
+  (filetree-replace-children
+   filetree
+   (map (lambda (node)
+	  (print "PATH " path " = " (filetree-path node) "?")
+	  (print (equal? path (filetree-path node)))
+	  (print (substring=? (filetree-path node) path))
+
+	  (cond ((equal? path (filetree-path node))
+		 (filetree-replace-children
+		  node (make-filetree-children children)))
+		((substring=? (filetree-path node) path)
+		 (filetree-insert-children node children path))
+		(else node)))
+	(filetree-children filetree))))
+
+(define (filetree-remove-children filetree path)
+  (map (lambda (file-pair)
+	 (cond ((equal? path (filetree-path node))
+		(filetree-replace-children file '()))
+		 ((substring=? (filetree-path node) path)
+		  (filetree-replace-children
+		   file (filetree-remove-children node path)))
+		 (else node)))
+       (filetree-children filetree)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; App
 
 (register-component "change-user"
@@ -22,86 +101,87 @@
 
 (define (open-close-switch files file children)
   (cond ((null? children)
-	 (<a> (% "props" (% "href" "#")
-		 "on" (% "click" (cb (newfile file-to-close current-files)
-				     (lambda (event)
-				       (values (cons (.url file) (.path file)) #f files)))))
-	      "+"))
+	 (a-click #f "+"
+		  (cb (file-to-open)
+		      (lambda (event)
+			(values (cons (.url file) (.path file)))))))
 	((equal? children 'loading) "...")
-	(else (<a>  (% "props" (% "href" "#")
-		       "on" (% "click" (cb (newfile file-to-close current-files)
-					   (lambda (event)
-					     (values #f (.path file) files)))))
-		    "-"))))
+	(else (a-click #f "-"
+		       (cb (newfile file-to-close current-files)
+			   (lambda (event)
+			     (values #f (.path file) files)))))))
 
-(define (file-explorer files)
-  (lambda (file-pair)
-    (let ((file (car file-pair))
-	  (children (cdr file-pair)))
-      (if (equal? (.type file) "dir")
+(define (file-explorer filetree)
+  (lambda (node)
+    (when node
+      (if (equal? (filetree-type node) "dir")
 	  (h "li.dir" #f
 	     (vector
-	      (open-close-switch files file children)
-	      (.path file)
-	      (h "ul.files" #f (map (file-explorer files) children))))
-	  (<li> #f (.path file))))))
+	      (open-close-switch filetree
+				 (filetree-file node)
+				 (filetree-children node))
+	      (filetree-path node)
+	      (h "ul.files" #f
+		 (map (file-explorer filetree) (filetree-children node)))))
+	  (<li> #f (filetree-path node))))) )
 
-(register-component "explorer"
-  (render-this (files)
-(begin (print "RENDERING") (log files)
-	       (<ul> #f
-      (map (file-explorer files) files)))) )
+(register-component
+ "explorer"
+ (render-this
+  (files)
+  (<ul> #f
+	(map (file-explorer files)
+	     (filetree-children files)))))
 
 (init '())
- 
+
 (catch-vars (user)
 	    (when user
-	      (let ((url (string-append
-			  "https://api.github.com/users/" user "/repos")))
-		(ajax "GET" (jstring url)
-                      (lambda (response)
-                        (send (repos)
-                              (begin
-                                (log (.response (.currentTarget response)))
-                                (.response (.currentTarget response)))))))))
-
+	      (github-api-repos
+	       user
+	       (lambda (response)
+		 (send (repos) response)))))
 
 (catch-vars (user repo)
 	    (when (and user repo)
-	      (let ((url (string-append
-			  "https://api.github.com/repos/" user "/" repo "/contents")))
-		(ajax "GET" (jstring url)
-                      (lambda (response)
-                        (send (raw-files)
-                              (begin
-                                (log (.response (.currentTarget response)))
-                                (.response (.currentTarget response)))))))))
+	      (github-api-repo
+	       user repo
+	       (lambda (response)
+		 (let ((filetree (make-filetree (% "path" "")
+				      (make-filetree-children response))))
+		 (send (files)
+		       filetree))))))
 
-(define (list-files files)
-  (map (lambda (f)
-	 (cons f '()))
-       files))
+;; event bus
 
-(catch-vars (raw-files)
-	    (when raw-files
-	      (send (files)
-		    (list-files raw-files))))
+(catch-vars (files file-to-open file-to-close)
+	    (when (or file-to-open file-to-close)
+	      (if file-to-open
+		  (github-api-call
+		   (car file-to-open)
+		   (lambda (response)
+		     (print "inserting " (cdr file-to-open))
+		     (log response)
+		     (log files)
+		     (log (filetree-insert-children
+			   files response
+			   (cdr file-to-open)))
+		     (send (file-to-open file-to-close files)
+			   (values #f #f
+				   (filetree-insert-children
+				    files response
+				    (cdr file-to-open))))))
+		  #f
+		  )))
 
-(define (substring=? str1 str2)
-  (equal? str1 (substring str2 0 (string-length str1))))
-
-(define (insert-files current-files newfiles newfile-path)
-  (map (lambda (file-pair)
-	 (let ((file (car file-pair))
-	       (children (cdr file-pair)))
-	   ;; (print "PAIR") (log file-pair) (log (.path file)) (log children)
-	   (cond ((equal? newfile-path (.path file))
-		  (begin (print "Equal") (log file) (print newfile-path)
-			 (cons file (list-files newfiles))))
-		 ((substring=? (.path file) newfile-path)
-		  (cons file (insert-files children newfiles newfile-path)))
-	       (else file-pair))))
-  current-files))
+;(catch-vars (current-files file-to-open)
+;	    (when file-to-open
+;	      (github-api-call
+;	       (car file-to-open)
+;	       (lambda (response)
+;		 (send (files)
+;		       (filetree-insert-children
+;			current-files response (cdr file-to-open)))))))
 
 ;;  (map (lambda (f)
 ;;	 (cond ((equal? (.path f) "b")
@@ -111,36 +191,8 @@
 ;;	       (else f)))
 ;;       current-files))
 
-
-(catch-vars (current-files newfile)
-  (when newfile
-    (ajax "GET" (jstring (car newfile))
-          (lambda (response)
-            (send (files)
-                  (begin
-                    (log response)
-                    (let ((newfiles (.response (.currentTarget response))))
-                      (insert-files current-files newfiles (cdr newfile)))))))))
-
-(define (remove-files current-files file-to-close)
-  (map (lambda (file-pair)
-	 (let ((file (car file-pair))
-	       (children (cdr file-pair)))
-	   (cond ((equal? file-to-close (.path file))
-		  (cons file '()))
-		 ((substring=? (.path file) file-to-close)
-		  (cons file (remove-files children file-to-close)))
-	       (else file-pair))))
-  current-files))
-
-
-(catch-vars (current-files file-to-close)
-  (when file-to-close
-    (send (files)
-	  (remove-files current-files file-to-close))))
-
-(catch-vars (bob)
-	    (print "BOB")
-	    (log bob))
-	
+;;(catch-vars (current-files file-to-close)
+  ;(when file-to-close
+   ; (send (files)
+;	
 (start)
