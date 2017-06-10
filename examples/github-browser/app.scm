@@ -51,7 +51,6 @@
   (make-filetree (filetree-file file) children))
 
 (define (filetree-insert-children filetree children path)
-  (print "inserting " path " into " (filetree-path filetree))
   (filetree-replace-children
    filetree
    (map (lambda (node)
@@ -61,7 +60,9 @@
 
 	  (cond ((equal? path (filetree-path node))
 		 (filetree-replace-children
-		  node (make-filetree-children children)))
+		  node (if (or (pair? children) (vector? children))
+			   (make-filetree-children children)
+			   children)))
 		((substring=? (filetree-path node) path)
 		 (filetree-insert-children node children path))
 		(else node)))
@@ -122,7 +123,9 @@
 				 (filetree-children node))
 	      (filetree-path node)
 	      (h "ul.files" #f
-		 (map (file-explorer filetree) (filetree-children node)))))
+		 (if (or (pair? (filetree-children node)) (vector? (filetree-children node)))
+		     (map (file-explorer filetree) (filetree-children node))
+		     '()))))
 	  (<li> #f (filetree-path node))))) )
 
 (register-component
@@ -157,20 +160,20 @@
 (catch-vars (files file-to-open file-to-close)
 	    (when (or file-to-open file-to-close)
 	      (if file-to-open
-		  (github-api-call
-		   (car file-to-open)
-		   (lambda (response)
-		     (print "inserting " (cdr file-to-open))
-		     (log response)
-		     (log files)
-		     (log (filetree-insert-children
-			   files response
-			   (cdr file-to-open)))
-		     (send (file-to-open file-to-close files)
-			   (values #f #f
-				   (filetree-insert-children
-				    files response
-				    (cdr file-to-open))))))
+		  (begin
+		    (github-api-call
+		     (car file-to-open)
+		     (lambda (response)
+		       (send (file-to-open file-to-close files)
+			     (values #f #f
+				     (filetree-insert-children
+				      files response
+				      (cdr file-to-open))))))
+		    (send (file-to-open file-to-close files)
+			  (values #f #f
+				  (filetree-insert-children
+				   files 'loading
+				   (cdr file-to-open)))))
 		  #f
 		  )))
 
