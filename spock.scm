@@ -40,8 +40,8 @@
 (define (set-event event elt cb)
   (set! (event elt) cb) elt)
 
-(define-syntax-rule (bind-event event elt cb)
-  (begin (set! (event elt) cb)
+(define-syntax-rule (bind-event event elt proc)
+  (begin (set! (event elt) (callback proc))
 	 elt))
 
 (define-syntax-rule (define-event name event)
@@ -53,9 +53,6 @@
 (define-event set-change .onchange)
 
 (define-event set-input .oninput)
-
-(define (old-set-click elt cb)
-  (set! (.onclick elt) cb) elt)
 
 (define (slice a)
   (%inline Array.prototype.slice.call a))
@@ -94,12 +91,19 @@
     ((define-element name elt)
      (define-syntax name
        (syntax-rules ()
+	 ;; ((name selector)
+	 ;; (lambda (props children)
+	 ;;   (h (jstring (string-append elt selector))
+	 ;;      props children)))
 	 ((name selector)
-	  (lambda (props children)
-	    (h (jstring (string-append elt selector))
-	       props children)))
-	 ((name props children)
-	  (h elt props children)))))))
+	  (h (jstring (string-append elt (or selector "")))
+	     #f (vector)))
+	 ((name selector props)
+	  (h (jstring (string-append elt (or selector "")))
+	     props (vector)))
+	 ((name selector props children)
+	  (h (jstring (string-append elt (or selector "")))
+	     props children)))))))
 
 (define-element <div> "div")
 
@@ -119,12 +123,16 @@
 
 (define-element <a> "a")
 
-(define (a-click class text cb)
-  (<a> (% "props" (% "href" "#" "class" class)
-	  "on" (% "click" cb))
+(define (a-click selector text proc)
+  (<a> selector (% "props" (% "href" "#")
+		   "on" (% "click" (callback proc)))
        text))
 
+(define-element <pre> "pre")
+
 (define-element <ul> "ul")
+
+(define-element <ol> "ol")
 
 (define-element <li> "li")
 
@@ -181,16 +189,15 @@
   (if (null? *queue*)
       (waiting)
       (let ((next-cc (*dequeue*)))
-	(print "YIELDING")
 	((next-cc)))))
 
-(define (assoc-val key l)
+(define (alist-ref key l)
   (cdr-safe (assoc key l)))
 
 (define-syntax with-bindings
   (syntax-rules ()
     ((with-bindings (vars ...) bindings body ...)
-     (let ((vars (assoc-val (quote vars) bindings)) ...)
+     (let ((vars (alist-ref (quote vars) bindings)) ...)
        body ...))))
 
 (define merge-bindings append)
@@ -207,7 +214,7 @@
 				  (map (lambda (var)
 					 (put-cons! var 'continuations K))
 				       (list (quote vars) ...)))
-				(list (assoc (quote vars) *inits*) ...)))))
+				'()))))
     (with-bindings (vars ...) bindings body ...)
     (yield)))
 
@@ -265,7 +272,6 @@
 
 (define (send-vars var-bindings)
   (map (lambda (varset)
-	 (print "CONTINUATIONS: " varset)
 	 (let ((var-names (car varset))
 	       (continuations (cdr varset)))
 	   (when (not (null? continuations))
@@ -288,9 +294,9 @@
 ;; (send (a b) (... (values 1 2)))
 (define-syntax send
   (syntax-rules ()
-    ((send (vars ...) body)
+    ((send (vars ...) body ...)
      (call-with-values
-	 (lambda () body)
+	 (lambda () body ...)
        (lambda (vars ...)
 	 (send-vars
 	  (list (cons (quote vars) vars) ...)))))))
@@ -314,13 +320,13 @@
 (define-syntax-rule (bind this event (vars ...) body ...)
   (catch-vars (vars ...)
     (bind-event event this
-		(callback (lambda (this)
-			    body ...)))))
+		(lambda (this)
+		  body ...))))
 
-(define-syntax-rule (bind-this event (vars ...) cb)
+(define-syntax-rule (bind-this event (vars ...) proc)
   (lambda (this)
     (catch-vars (vars ...)
-      (bind-event event this cb))))
+      (bind-event event this proc))))
 
 (define-syntax cb
   (syntax-rules ()
@@ -330,13 +336,21 @@
 	(send (vars ...)
               (body event)))))))
 
-(define-syntax-rule (init bindings body ...)
-  (begin
-    (set! *inits* bindings)
-    (map (lambda (e)
-	   (let ((name (%inline .getAttribute e "spock")))
-	     ((get-callback name) e)))
-	 (spock-elements)) ))
+(define-syntax init
+  (syntax-rules ()
+    ((init ((vars vals) ...))
+     (begin
+       (map (lambda (e)
+	      (let ((name (%inline .getAttribute e "spock")))
+		((get-callback name) e)))
+	    (spock-elements))
+
+       (send (vars ...) (values vals ...))
+
+       (call/cc (lambda (k) (set! waiting k)))
+       (begin (print "waiting..."))))
+    ((init) (init ()))))
+
 ;    body ...
  ;   (call/cc (lambda (k) (set! waiting k)))
   ;  (begin (print "waiting..."))))
