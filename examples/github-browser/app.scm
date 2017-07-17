@@ -2,7 +2,7 @@
 ;; Github API
 
 (define (github-api-call uri proc)
-  (ajax "GET" (jstring uri)
+  (ajax 'GET uri
 	(lambda (response)
 	  (proc (.response (.currentTarget response))))))
 
@@ -19,11 +19,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Model
 
-(define (tree file children)
+(define top-node  (% "path" ""))
+
+(define (make-tree file children)
   (cons file children))
 
 (define (empty-tree file)
-  (tree file '()))
+  (make-tree file '()))
 
 (define (tree-obj filetree)
   (car filetree))
@@ -35,7 +37,7 @@
   (cdr filetree))
 
 (define (tree-replace-children node children)
-  (tree (tree-obj node) children))
+  (make-tree (tree-obj node) children))
 
 (define (substring=? str1 str2)
   (equal? str1 (substring str2 0 (string-length str1))))
@@ -65,6 +67,49 @@
 		(else node)))
 	(tree-children filetree))))
 
+(catch-vars (user)
+	    (when user
+	      (github-api-repos
+	       user
+	       (lambda (response)
+		 (send (repos) response)))))
+
+(catch-vars (user repo)
+	    (when (and user repo)
+	      (github-api-repo
+	       user repo
+	       (lambda (response)
+		 (let ((filetree (make-tree top-node
+				      (map empty-tree response))))
+		 (send (files)
+		       filetree))))))
+
+(catch-vars
+ (files file-to-open)
+ (when file-to-open
+   (send (file-to-open files)
+	 (github-api-call
+	  (.url file-to-open)
+	  (lambda (response)
+	    (send (files)
+		  (tree-insert-children
+		   files response
+		   (.path file-to-open)))))
+		    
+	 (values #f
+		 (tree-insert-children
+		  files 'loading
+		  (.path file-to-open))))))
+
+(catch-vars
+ (files file-to-close)
+ (when file-to-close
+   (send (file-to-close files)
+	 (values #f
+		 (tree-remove-children
+		  files (.path file-to-close))))))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; App
 
@@ -72,15 +117,13 @@
  "change-user"
  (render-this
   (user)
-;;  (if user
-    (<input> #f (% "props" (% "type" "text" "value" (or user ""))
-		   "on" (% "change"
-			   (callback
-			    (lambda (event)
-			      (set-hash! (.value (.target event)))
-			      (send (user)
-				    (.value (.target event))))))))))
-  ;;  (<div> #f #f "loading"))))
+  (<input> #f (% "props" (% "type" "text" "value" (or user ""))
+                 "on" (% "change"
+                         (callback
+                          (lambda (event)
+                            (set-hash! (.value (.target event)))
+                            (send (user)
+                                  (.value (.target event))))))))))
 
 (register-component "choose-repository"
   (render-this (repos)
@@ -126,8 +169,7 @@
 			  (.url (tree-obj node))
 			  (lambda (response)
 			    (send (file)
-				  (%inline
-				   atob (.content response))))))))))))
+				  (%inline atob (.content response))))))))))))
 
 (register-component
  "explorer"
@@ -136,67 +178,19 @@
   (<ul> #f #f
 	(map file-explorer (tree-children files)))))
 
-(catch-vars (user)
-	    (when user
-	      (github-api-repos
-	       user
-	       (lambda (response)
-		 (send (repos) response)))))
-
-(catch-vars (user repo)
-	    (when (and user repo)
-	      (github-api-repo
-	       user repo
-	       (lambda (response)
-		 (let ((filetree (tree (% "path" "")
-				      (map empty-tree response))))
-		 (send (files)
-		       filetree))))))
-
 (register-component
  "editor"
  (render-this (file)
 	      (<pre> #f #f file)))
 
-(catch-vars
- (files file-to-open)
- (when file-to-open
-   (send (file-to-open file-to-close files)
-	 (github-api-call
-	  (.url file-to-open)
-	  (lambda (response)
-	    (send (files)
-		  (tree-insert-children
-		   files response
-		   (.path file-to-open)))))
-		    
-	 (values #f #f
-		 (tree-insert-children
-		  files 'loading
-		  (.path file-to-open))))))
-
-(catch-vars
- (files file-to-close)
- (when file-to-close
-   (send (file-to-open file-to-close files)
-	 (values #f #f
-		 (tree-remove-children
-		  files (.path file-to-close))))))
 
 ;; more serious - hash/router/path...
 ;; i.e., match path = /user/:name/:repo#file/:id
 ;; with path => '((name . "name") (repo . "repo") (id . "id"))
 ;; and round-tripping
 
-(define (get-hash)
-  (let ((hash window.location.hash))
-    (and hash (not (equal? hash ""))
-	 (not (equal? hash "#"))
-	 (substring hash 1))))
-
-(define (set-hash! hash)
-  (set! window.location.hash
-    (jstring (string-append "#" hash))))
+(log window.location.pathname)
+(map log (get-path))
 
 (init ((user (get-hash))))
 

@@ -1,4 +1,20 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Utilities
+
+(define (string-split str char)
+  (letrec ((cons-if (lambda (a l)
+                      (if (null? a) l (cons a l)))))
+    (let loop ((strl1 '())
+               (strls '())
+               (strl (string->list str)))
+      (cond ((null? strl)
+             (reverse (map list->string (cons-if (reverse strl1) strls))))
+            ((eqv? char (car strl))
+             (loop '() (cons-if (reverse strl1) strls) (cdr strl)))
+            (else
+             (loop (cons (car strl) strl1) strls (cdr strl)))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; DOM
 
 (define (qsa element query) (%inline .querySelectorAll element query))
@@ -151,14 +167,14 @@
 (define (ajax-cb x)
   (log (.responseText x)))
 
-(define (ajax method path cb)
+(define (ajax method path proc)
   (let ((x (%inline "new XMLHttpRequest")))
-    (%inline ".open" x method path #t)
+    (%inline ".open" x (symbol->string method) (jstring path) #t)
     (set! (.onload x)
       (callback
        (lambda (response)
          (if (equal? (.status x) 200)
-             (cb response)
+             (proc response)
              (begin (log "Ajax error")
                     (log event))))))
     (set! (.responseType x) "json")
@@ -283,6 +299,22 @@
 		 (cons var (get var 'continuations))))
 	     var-bindings)))
   (yield))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Router
+
+(define (get-hash)
+  (let ((hash window.location.hash))
+    (and hash (not (equal? hash ""))
+	 (not (equal? hash "#"))
+	 (substring hash 1))))
+
+(define (set-hash! hash)
+  (set! window.location.hash
+    (jstring (string-append "#" hash))))
+
+(define (get-path)
+  (string-split window.location.pathname #\/))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; API
