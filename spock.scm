@@ -332,6 +332,8 @@
 
 ;; (define (define-routes
 
+;; or (define-route ("base" :var1) (send-vars ...)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; API
 
@@ -359,7 +361,8 @@
 (define-syntax render
   (syntax-rules (route:)
     ((render (route: route ...) (vars ...) body)
-     (render (route ... vars ...) body))
+     ;; add check that route is registered
+     (render (route ... vars ...) (and route ... body))) 
     ((render (vars ...) body)
      (lambda (this)
        (let ((ref this))
