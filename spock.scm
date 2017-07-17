@@ -306,10 +306,6 @@
 ;; with path => '((name . "name") (repo . "repo") (id . "id"))
 ;; and round-tripping
 ;;
-;; (define-routes '(("base") 
-;;                  ("base" :var1)
-;;                  ("base" :var1 :var2)))
-;;
 ;; (render (route: :var1) (other vars) body...)
 ;;
 ;; later, consider something like
@@ -328,9 +324,15 @@
 (define (get-path)
   (string-split window.location.pathname #\/))
 
-;; (define (match-route path route) => alist '((name . "Bob"))
+;; (define (match-route path routes)
+;;  => alist '((name . "Bob") (other . #f) (another . #f)))
 
-;; (define (define-routes
+;; match and send, with all other :vars = #f
+;; (define-routes
+;;   '("base"
+;;     ("user" :user)
+;;     ("app"
+;;      (:app ("join" "run"))))
 
 ;; or (define-route ("base" :var1) (send-vars ...)
 

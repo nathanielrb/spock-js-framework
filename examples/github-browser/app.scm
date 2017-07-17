@@ -72,6 +72,7 @@
 	      (github-api-repos
 	       user
 	       (lambda (response)
+                 (print "got user")
 		 (send (repos) response)))))
 
 (catch-vars (user repo)
@@ -116,7 +117,7 @@
 (register-component
  "change-user"
  (render
-  (john)
+  (user)
   (<input> #f (% "props" (% "type" "text" "value" (or user ""))
                  "on" (% "change"
                          (callback
