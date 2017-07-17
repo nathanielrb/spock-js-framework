@@ -218,8 +218,6 @@
 
 (define merge-bindings append)
 
-;; thread *inits???
-
 (define (put-cons! var property val)
   (put! var property
 	(cons val (or (get var property) '()))))
@@ -303,6 +301,20 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Router
 
+;; more serious - hash/router/path...
+;; match path = /user/:name/:repo#file/:id
+;; with path => '((name . "name") (repo . "repo") (id . "id"))
+;; and round-tripping
+;;
+;; (define-routes '(("base") 
+;;                  ("base" :var1)
+;;                  ("base" :var1 :var2)))
+;;
+;; (render (route: :var1) (other vars) body...)
+;;
+;; later, consider something like
+;; <div spock-route="/user/:name/:repo#file/:id" spock-render="proc"> ...
+
 (define (get-hash)
   (let ((hash window.location.hash))
     (and hash (not (equal? hash ""))
@@ -315,6 +327,10 @@
 
 (define (get-path)
   (string-split window.location.pathname #\/))
+
+;; (define (match-route path route) => alist '((name . "Bob"))
+
+;; (define (define-routes
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; API
@@ -333,21 +349,25 @@
 	 (send-vars
 	  (list (cons (quote vars) vars) ...)))))))
 
-;; possible without set! and the this/ref switch?
+;; Is this possible without set! and the this/ref switch?
 
-(define-syntax-rule (render ref (vars ...) body ...)
+(define-syntax-rule (render* ref (vars ...) body ...)
   (catch-vars (vars ...)
     (let ((newnode (h (nodename ref) #f (vector body ...))))
       (set! ref (patch ref newnode)))))
 
-(define-syntax-rule (render-this (vars ...) body)
-  (lambda (this)
-    (let ((ref this))
-      (catch-vars (vars ...)
-        (let ((newnode body)) ;(h (nodename this) #f (vector body ...))))
-	  (if newnode
-	      (set! ref (patch ref newnode))
-	      ref))))))
+(define-syntax render
+  (syntax-rules (route:)
+    ((render (route: route ...) (vars ...) body)
+     (render (route ... vars ...) body))
+    ((render (vars ...) body)
+     (lambda (this)
+       (let ((ref this))
+         (catch-vars (vars ...)
+           (let ((newnode body))
+             (if newnode
+                 (set! ref (patch ref newnode))
+                 ref))))))))
 
 (define-syntax-rule (bind this event (vars ...) body ...)
   (catch-vars (vars ...)

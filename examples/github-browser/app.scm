@@ -115,8 +115,8 @@
 
 (register-component
  "change-user"
- (render-this
-  (user)
+ (render
+  (john)
   (<input> #f (% "props" (% "type" "text" "value" (or user ""))
                  "on" (% "change"
                          (callback
@@ -126,7 +126,7 @@
                                   (.value (.target event))))))))))
 
 (register-component "choose-repository"
-  (render-this (repos)
+  (render (repos)
     (<select> #f (% "on" (% "change" (callback
 				   (lambda (event)
 				     (send (repo)
@@ -173,21 +173,15 @@
 
 (register-component
  "explorer"
- (render-this
+ (render
   (files)
   (<ul> #f #f
 	(map file-explorer (tree-children files)))))
 
 (register-component
  "editor"
- (render-this (file)
+ (render (file)
 	      (<pre> #f #f file)))
-
-
-;; more serious - hash/router/path...
-;; i.e., match path = /user/:name/:repo#file/:id
-;; with path => '((name . "name") (repo . "repo") (id . "id"))
-;; and round-tripping
 
 (log window.location.pathname)
 (map log (get-path))
