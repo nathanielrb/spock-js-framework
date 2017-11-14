@@ -1,10 +1,27 @@
-* Core
+* router
+* Refactor Github example
 
-** TODO harmonize snabbdom interface
-*** TODO 1 argument not css selectors but single child ...
+*** TODO abstract <a> with callback
+*** TODO abstract api functions (join paths)
+*** TODO abstract data structures for github api objects
+file-node = (file children) with accessors - (path file-node) = (.path (car node))...
+*** TODO move (jstring) into (ajax) function
+*** TODO unify newfile/file-to-close/current-files with locking mechanism
+with a sort of (catch-send-locking) or (send-when):
+(catch-vars (files new-node)
+  (when new-node
+    (send (files new-node)
+     (values ... #f))))
 
-* Github Browser
+*** TODO "..." on node loading
 
-** TODO tree structure
-*** TODO add/remove subtree
-*** TODO locking for consecutive ajax-requests to get updated base tree
+* Persentent Vectors (fectors)
+port library
+* map-catch abstraction
+with some sort of caching/persistant eq? check/...?
+(map-catch-vars (x y)
+  (lambda (e) ..) elements)
+=>
+(let ((cache or previous elements))
+  (catch-vars (x y)
+    (each element -- if eq? cached value, else reapply fn)))
