@@ -8,6 +8,7 @@
     <script type="text/javascript" src="../../snabbdom/dist/snabbdom-props.js"></script>
     <script type="text/javascript" src="../../snabbdom/dist/snabbdom-eventlisteners.js"></script>
 
+    <link type="text/css" rel="stylesheet" href="style.css" />
     <script>
       var patch = snabbdom.init([
         snabbdom_class.default,
@@ -26,18 +27,25 @@
   </head>
   <body>
 
-    <div>
-      <label>user</label>
-      <div spock="change-user"/>
+    <div id="menu">
+      <div>
+        <label>Github user: </label>
+        <div spock="change-user"/>
+      </div>
+
+      Repositories: <div spock="choose-repository"></div>
+    </div>
     </div>
 
-    <div spock="choose-repository"></div>
-    
-    <div>
-      <div spock="explorer">render me</div>
+    <div id="wrapper">
+      <div class="explorer">
+        <div spock="explorer">render me</div>
+      </div>
+      <div class="editor">
+        <div spock="editor"></div>
+      </div>
+      <br class="clear"/>
     </div>
-
-    <div spock="editor"></div>
 
     <script src="app.js"></script>
   </body>

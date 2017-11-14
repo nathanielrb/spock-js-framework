@@ -1,0 +1,27 @@
+body {
+	background-color: #ddd;
+	font-size: 11.5pt;
+        line-height: 1.4em;
+	font-family: asap, sans-serif;
+}
+
+#menu, #wrapper {
+    width: 100%;
+    margin: 40px 60px;
+}
+
+.explorer {
+    width: 20%;
+    float: left;
+}
+.clear { clear: both }
+.editor {
+    width: 60%;
+    float: left;
+}
+ul {
+    padding-left: 0;
+}
+li {
+    list-style: none;
+}
